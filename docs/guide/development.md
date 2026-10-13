@@ -58,6 +58,7 @@ dais photo                                          # 1600x1200, 128 samples, ev
 |---|---|---|
 | `--threads` | 8 | Cycles CPU threads |
 | `--memory` | `2G` | hard RAM cap of the Blender process |
+| `--tiles` | 2 (preview 1) | render and denoise as N x N overlapping crops: bounds the denoiser's memory |
 | `--samples` | 128 (preview 24) | |
 | `--blender` | `$DAIS_BLENDER`, PATH, `/opt/blender/*/blender` | |
 
@@ -69,7 +70,10 @@ The renders are built never to disturb other work on the machine:
   and has no GPU device at all. `CUDA_VISIBLE_DEVICES=""` and CPU-only Cycles settings are kept
   as further layers. Only Cycles in background mode is used: EEVEE/Workbench would need OpenGL.
 - **RAM is capped** with a systemd user scope (`MemoryMax`, no swap): over the cap the render
-  is killed, not your other jobs. A full design peaks around 0.9 GiB.
+  is killed, not your other jobs. The peak is the denoiser (OIDN), whose memory scales with the
+  pixels it sees at once: a whole 1600 x 1200 frame reaches ~1.9 GiB, so finals render as
+  `--tiles 2` -- four crops with a 48 px overlap, denoised separately and stitched with linear
+  blends -- and peak at ~0.75 GiB for ~30% more time. Previews (800 x 600) use one tile.
 - **CPU priority is the lowest** (`nice -n 19`) with a fixed thread count.
 
 Meshes and the scene description go to `out/<board>/photo-work/`; `blender_scene.py` runs inside

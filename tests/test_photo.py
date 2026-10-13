@@ -52,3 +52,28 @@ def test_find_blender(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert photo.find_blender(str(exe)) == str(exe)
     monkeypatch.setenv("DAIS_BLENDER", str(exe))
     assert photo.find_blender() == str(exe)
+
+
+def test_stitch_rebuilds_the_frame_from_overlapping_crops(tmp_path: Path) -> None:
+    import json
+
+    import numpy as np
+
+    w, h, ov = 40, 30, 4
+    frame = np.random.default_rng(0).integers(0, 256, (h, w, 4), dtype=np.uint8)
+    tiles = []
+    for j in range(2):
+        for i in range(2):
+            x0, x1 = max(0, i * w // 2 - ov), min(w, (i + 1) * w // 2 + ov)
+            y0, y1 = max(0, j * h // 2 - ov), min(h, (j + 1) * h // 2 + ov)
+            f = tmp_path / f"t{i}{j}.png"
+            Image.fromarray(frame[y0:y1, x0:x1], "RGBA").save(f)
+            tiles.append({"file": str(f), "x0": x0, "y0": y0, "x1": x1, "y1": y1})
+    spec = tmp_path / "s.tiles.json"
+    spec.write_text(json.dumps({"width": w, "height": h, "tiles": tiles}))
+    photo.stitch(spec, tmp_path / "out.png")
+    assert np.array_equal(np.asarray(Image.open(tmp_path / "out.png")), frame)  # identical crops: exact
+
+    Image.fromarray(frame[:5, :5], "RGBA").save(tiles[0]["file"])  # wrong size: refuse, never resize
+    with pytest.raises(RuntimeError, match="rectangle"):
+        photo.stitch(spec, tmp_path / "out.png")

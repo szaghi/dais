@@ -74,6 +74,7 @@ def cmd_photo(args: argparse.Namespace) -> None:
         samples=args.samples or (24 if args.preview else 128),
         resolution=(w, h),
         memory=args.memory,
+        tiles=args.tiles or (1 if args.preview else 2),
         blender=args.blender,
         only=args.shot,
     )
@@ -144,6 +145,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--samples", type=int, default=None, help="Cycles samples (default 128, preview 24)")
     p.add_argument("--threads", type=int, default=8, help="CPU threads for Cycles (default 8)")
     p.add_argument("--memory", default="2G", help="hard RAM cap of the Blender process (default 2G)")
+    p.add_argument(
+        "--tiles", type=int, default=None, help="render/denoise as N x N overlapping crops (default 2, preview 1)"
+    )
     p.add_argument("--blender", default=None, help="Blender executable (default: $DAIS_BLENDER, PATH, /opt/blender)")
     p.set_defaults(func=cmd_photo)
     sub.add_parser("list", help="list the designs").set_defaults(func=cmd_list)

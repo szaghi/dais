@@ -18,6 +18,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
 from build123d import Part, export_stl
 from PIL import Image
 
@@ -120,6 +121,44 @@ def blender_command(blender: str, script: Path, scene: Path, memory: str) -> lis
     return cmd
 
 
+def stitch(spec: Path, out: Path) -> None:
+    """Join overlapping render crops (see ``blender_scene.render_tiles``) into one RGBA image.
+
+    Inside each overlap the two crops are blended with linear ramps, so the seams of the
+    per-tile denoising disappear.
+
+    Raises
+    ------
+    RuntimeError
+        If a crop's size differs from its rectangle: resizing it would shift it by a fraction of a
+        pixel and show as a seam.
+    """
+    meta = json.loads(spec.read_text())
+    w, h = meta["width"], meta["height"]
+    acc = np.zeros((h, w, 4))
+    wsum = np.zeros((h, w, 1))
+    for t in meta["tiles"]:
+        x0, y0, x1, y1 = t["x0"], t["y0"], t["x1"], t["y1"]
+        img = Image.open(t["file"]).convert("RGBA")
+        if img.size != (x1 - x0, y1 - y0):
+            raise RuntimeError(f"{t['file']}: {img.size} != rectangle {(x1 - x0, y1 - y0)}")
+        tw, th = x1 - x0, y1 - y0
+        rx = np.minimum(np.arange(tw) + 1, np.arange(tw)[::-1] + 1).astype(float)
+        ry = np.minimum(np.arange(th) + 1, np.arange(th)[::-1] + 1).astype(float)
+        if x0 == 0:
+            rx[: tw // 2] = np.inf  # no neighbour on this side: full weight up to the frame edge
+        if x1 == w:
+            rx[tw // 2 :] = np.inf
+        if y0 == 0:
+            ry[: th // 2] = np.inf
+        if y1 == h:
+            ry[th // 2 :] = np.inf
+        weight = np.minimum.outer(np.minimum(ry, 64.0), np.minimum(rx, 64.0))[..., None]
+        acc[y0:y1, x0:x1] += np.asarray(img, dtype=float) * weight
+        wsum[y0:y1, x0:x1] += weight
+    Image.fromarray(np.clip(acc / wsum, 0, 255).round().astype(np.uint8), "RGBA").save(out)
+
+
 def composite(png: Path, out: Path) -> None:
     """Lay the transparent render (with its shadow-catcher shadows) over the light backdrop."""
     fg = Image.open(png).convert("RGBA")
@@ -140,6 +179,7 @@ def photo(
     samples: int,
     resolution: tuple[int, int],
     memory: str,
+    tiles: int = 2,
     blender: str | None = None,
     only: list[str] | None = None,
 ) -> None:
@@ -190,6 +230,7 @@ def photo(
             "threads": threads,
             "samples": samples,
             "resolution": list(resolution),
+            "tiles": tiles,
             "output": str(raw_dir),
             "meshes": meshes,
             "shots": shot_list,
@@ -206,5 +247,9 @@ def photo(
         )
         subprocess.run(blender_command(exe, script, scene, memory), env=env, check=True)
         for s in todo:
+            spec = raw_dir / f"{s.name}.tiles.json"
+            if spec.exists():
+                stitch(spec, raw_dir / f"{s.name}.png")
+                spec.unlink()
             composite(raw_dir / f"{s.name}.png", out / name / f"{s.name}.webp")
             log.info("wrote %s", out / name / f"{s.name}.webp")

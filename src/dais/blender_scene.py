@@ -111,6 +111,9 @@ def setup(cfg: dict) -> bpy.types.Scene:
     scene.cycles.use_denoising = True
     scene.cycles.denoiser = "OPENIMAGEDENOISE"
     scene.cycles.denoising_use_gpu = False
+    # OIDN on the full frame is the memory peak (~1.6 GiB at 1600x1200 with the defaults)
+    scene.cycles.denoising_prefilter = cfg.get("denoise_prefilter", "ACCURATE")
+    scene.cycles.denoising_quality = cfg.get("denoise_quality", "HIGH")
     scene.cycles.tile_size = 256  # small tiles keep the render buffers small
     scene.render.use_persistent_data = False
     scene.render.threads_mode = "FIXED"
@@ -172,6 +175,39 @@ def frame(
     cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
 
 
+def render_tiles(scene: bpy.types.Scene, out: Path, name: str, tiles: int, overlap: int) -> None:
+    """Render ``name`` whole, or as ``tiles`` x ``tiles`` overlapping crops plus a JSON of their
+    pixel rectangles (top-left origin) for ``dais.photo`` to stitch.
+
+    The denoiser's memory scales with the pixels it sees at once (~0.7 KiB/px with OIDN): a 2 x 2
+    grid cuts the peak from ~1.9 GiB to roughly a third at 1600 x 1200.
+    """
+    r = scene.render
+    if tiles == 1:
+        r.use_border = False
+        r.filepath = str(out / f"{name}.png")
+        bpy.ops.render.render(write_still=True)
+        return
+    w, h = r.resolution_x, r.resolution_y
+    r.use_border = True
+    r.use_crop_to_border = True
+    rects = []
+    for j in range(tiles):
+        for i in range(tiles):
+            x0, x1 = max(0, i * w // tiles - overlap), min(w, (i + 1) * w // tiles + overlap)
+            y0, y1 = max(0, j * h // tiles - overlap), min(h, (j + 1) * h // tiles + overlap)
+            # Blender truncates border * size to whole pixels, and 848 / 1600 * 1600 can land at
+            # 847.999...: aim half a pixel inside each cell so the crop is exactly the rectangle
+            r.border_min_x, r.border_max_x = (x0 + 0.5) / w, min(1.0, (x1 + 0.5) / w)
+            r.border_min_y, r.border_max_y = (h - y1 + 0.5) / h, min(1.0, (h - y0 + 0.5) / h)  # y runs up
+            path = out / f"{name}__{i}_{j}.png"
+            r.filepath = str(path)
+            bpy.ops.render.render(write_still=True)
+            rects.append({"file": str(path), "x0": x0, "y0": y0, "x1": x1, "y1": y1})
+    r.use_border = False
+    (out / f"{name}.tiles.json").write_text(json.dumps({"width": w, "height": h, "tiles": rects}))
+
+
 def main() -> None:
     """Import the meshes once, then render every shot."""
     cfg = json.loads(Path(sys.argv[sys.argv.index("--") + 1]).read_text())
@@ -197,8 +233,7 @@ def main() -> None:
             w / h,
             shot.get("focus"),
         )
-        scene.render.filepath = str(Path(cfg["output"]) / f"{shot['name']}.png")
-        bpy.ops.render.render(write_still=True)
+        render_tiles(scene, Path(cfg["output"]), shot["name"], cfg.get("tiles", 1), cfg.get("tile_overlap", 48))
         print(f"DAIS rendered {shot['name']}", flush=True)
 
 
