@@ -1,22 +1,24 @@
-"""Skin patterns for the sides of the split top case: flutes, knurl, hex scales, ripple.
+"""Skin patterns for the sides of the split top case: fuzzy skin, voronoi leather, facets.
 
-Each pattern is a cutter, built face by face in a local frame (x along the face, y = world up,
-z = outward normal, surface at z = 0) and clipped to a band parallel to the top. The top case
-prints top face down, so every relief is shaped for that: groove walls lean at most 45 deg from
-the print axis, hex pockets have 45 deg drafted walls, and the lower groove ends ramp out at
-PATTERN_RAMP instead of stopping on a flat ceiling. The back face (USB-C) stays plain.
+``fuzzy`` changes no geometry: it exports a modifier volume -- a thin shell inside the front and
+side walls -- for the slicer's fuzzy-skin setting, so the texture stays off the top face, the
+bevels, the seam and the back. ``voronoi`` and ``facets`` are cutters, built face by face in a
+local frame (x along the face, y = world up, z = outward normal, surface at z = 0) and clipped to
+a band parallel to the top. The top case prints top face down, so every relief face turned
+toward the bed stays within PATTERN_MAX_UP (about 33 deg from the wall, 40 deg with the 7 deg
+print tilt), and the band's lower edge ramps out at PATTERN_RAMP. The back face (USB-C) stays plain.
 """
 
 from __future__ import annotations
 
 import math
+import random
 
+import numpy as np
 from build123d import (
     Align,
     Box,
-    Circle,
     Compound,
-    Cylinder,
     Face,
     GeomType,
     Location,
@@ -24,37 +26,35 @@ from build123d import (
     Plane,
     Polygon,
     Pos,
-    RegularPolygon,
-    Rot,
-    Spline,
     Vector,
     extrude,
-    sweep,
+    loft,
 )
+from scipy.spatial import Voronoi
 
-from .layout import Layout
+from .layout import Layout, between
 from .params import (
-    FLUTE_PITCH,
-    FLUTE_R,
-    HEX_FLATS,
-    HEX_GAP,
-    KNURL_PITCH,
+    FACET_DEPTH,
+    FACET_TILE,
+    FUZZY_SKIN,
     PATTERN_BOTTOM,
-    PATTERN_DEPTH,
     PATTERN_MARGIN,
+    PATTERN_MAX_UP,
     PATTERN_RAMP,
+    PATTERN_SEED,
     PATTERN_TOP,
+    R_CORNER,
     REBATE_H,
-    RIPPLE_AMP,
-    RIPPLE_PITCH,
-    RIPPLE_R,
-    RIPPLE_WAVE,
     SPLIT_FRONT_Z,
     TILT,
     TOP_EDGE,
+    VORONOI_CELL,
+    VORONOI_DEPTH,
+    VORONOI_DRAFT,
+    VORONOI_GROOVE,
     Pattern,
 )
-from .shell import outer_shell
+from .shell import outer_shell, outline
 
 BIG = 400.0
 ABOVE = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -121,94 +121,192 @@ def _faces(lay: Layout) -> list[_Face]:
     return out
 
 
-def _flutes(face: _Face) -> Part:
-    """Vertical grooves, whole ones only, evenly spread over the face."""
-    lo, hi = face.y_range()
-    n = int((face.x1 - face.x0 - 2 * FLUTE_R) // FLUTE_PITCH) + 1
-    start = (face.x0 + face.x1) / 2 - (n - 1) * FLUTE_PITCH / 2
-    rod = Cylinder(FLUTE_R, hi - lo + 4, align=ABOVE)
-    cut = Part()
+Pt = tuple[float, float]
+
+
+def _rng(face: _Face) -> random.Random:
+    """Reproducible per-face randomness."""
+    return random.Random(PATTERN_SEED * 1000 + round(face.x1 - face.x0) * 37 + round(face.h1 * 10))
+
+
+def _area(poly: list[Pt]) -> float:
+    return 0.5 * sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(poly, poly[1:] + poly[:1], strict=True))
+
+
+def _inset(poly: list[Pt], d: float) -> list[Pt] | None:
+    """Convex CCW polygon offset inward by ``d`` (outward when negative); None when it collapses.
+
+    Half-plane clipping, not edge-line intersection: an inset makes short edges vanish (Voronoi
+    cells have many), which intersecting consecutive offset lines cannot handle.
+    """
+    xs, ys = [q[0] for q in poly], [q[1] for q in poly]
+    m = abs(d) + 1.0
+    out: list[Pt] = [
+        (min(xs) - m, min(ys) - m),
+        (max(xs) + m, min(ys) - m),
+        (max(xs) + m, max(ys) + m),
+        (min(xs) - m, max(ys) + m),
+    ]
+    for a, b in zip(poly, poly[1:] + poly[:1], strict=True):
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(ex, ey)
+        if n < 1e-9:
+            continue
+        nx, ny = -ey / n, ex / n  # inward (left) normal of a CCW edge
+        c = nx * a[0] + ny * a[1] + d  # keep points with n . p >= c
+
+        def side(q: Pt, nx: float = nx, ny: float = ny, c: float = c) -> float:
+            return nx * q[0] + ny * q[1] - c
+
+        clipped: list[Pt] = []
+        for p, q in zip(out, out[1:] + out[:1], strict=True):
+            sp, sq = side(p), side(q)
+            if sp >= 0:
+                clipped.append(p)
+            if sp * sq < 0:
+                t = sp / (sp - sq)
+                clipped.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t))
+        out = clipped
+        if len(out) < 3:
+            return None
+    return out if _area(out) > 0.3 else None
+
+
+def _dedupe(poly: list[Pt], tol: float = 0.05) -> list[Pt]:
+    """Drop vertices closer than ``tol`` to the previous one (short edges make degenerate lofts)."""
+    out: list[Pt] = []
+    for q in poly:
+        if not out or math.dist(q, out[-1]) > tol:
+            out.append(q)
+    if len(out) > 1 and math.dist(out[0], out[-1]) <= tol:
+        out.pop()
+    return out
+
+
+def _miter(poly: list[Pt], r: float) -> list[Pt]:
+    """Convex CCW polygon offset outward by ``r``, vertex for vertex (miter joins)."""
+    out = []
+    n = len(poly)
     for i in range(n):
-        cut += Pos(start + i * FLUTE_PITCH, lo - 2, FLUTE_R - PATTERN_DEPTH) * Rot(-90, 0, 0) * rod
-    return cut
+        a, v, b = poly[i - 1], poly[i], poly[(i + 1) % n]
+        n1 = _left_normal(a, v)
+        n2 = _left_normal(v, b)
+        k = 1.0 + n1[0] * n2[0] + n1[1] * n2[1]
+        out.append((v[0] - r * (n1[0] + n2[0]) / k, v[1] - r * (n1[1] + n2[1]) / k))
+    return out
 
 
-def _knurl(face: _Face) -> Part:
-    """Crossed 90 deg V-grooves at +-45 deg: raised diamonds between them."""
-    d = PATTERN_DEPTH
-    vee = Polygon((-(d + 1.0), 1.0), (d + 1.0, 1.0), (0.0, -d), align=None)  # (across, z): apex at -d
-    lo, hi = face.y_range()
-    span = (face.x1 - face.x0) + (hi - lo)
-    groove = extrude(Plane.YZ * vee, amount=span + 5, both=True)  # along local x
-    cx, cy = (face.x0 + face.x1) / 2, (lo + hi) / 2
-    m = int(span / KNURL_PITCH) + 2
-    grooves = []
-    for sign in (1, -1):
-        a = math.radians(45 * sign)
-        normal = Vector(-math.sin(a), math.cos(a), 0)  # spacing direction, across the grooves
-        for i in range(-m, m + 1):
-            off = i * KNURL_PITCH
-            grooves.append(Pos(cx + normal.X * off, cy + normal.Y * off, 0) * Rot(0, 0, 45 * sign) * groove)
-    # one compound, one boolean: fusing ~90 crossing grooves one by one is quadratic in OCC
-    return Part(Compound(grooves).wrapped)
+def _left_normal(a: Pt, b: Pt) -> Pt:
+    ex, ey = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(ex, ey)
+    return (-ey / n, ex / n)
 
 
-def _hex(face: _Face) -> Part:
-    """Pointy-top hexagonal pockets with 45 deg drafted walls in staggered rows that follow the band
-    (parallel to the top), columns centred on the face; whole hexagons only."""
-    r = HEX_FLATS / math.sqrt(3)  # circumradius at the surface
-    lift = 0.5  # start the cutter above the surface so it opens cleanly
-    pocket = Pos(0, 0, lift) * extrude(
-        RegularPolygon(r + lift, 6, rotation=30), amount=PATTERN_DEPTH + lift, dir=(0, 0, -1), taper=45
-    )
-    dx, dy = HEX_FLATS + HEX_GAP, (HEX_FLATS + HEX_GAP) * math.sqrt(3) / 2
+def _sheared(face: _Face, pts: list[Pt]) -> list[tuple[float, float]]:
+    """Band coordinates (x, s above the band's lower edge) -> local face (x, y)."""
+    c0, k = face.line(face.h0)
+    return [(x, c0 + k * x + s) for x, s in pts]
+
+
+def _voronoi(face: _Face) -> Part:
+    """Leather: raised Voronoi cells over the whole band, separated by V grooves with drafted walls."""
+    (c0, _), (c1, _) = face.line(face.h0), face.line(face.h1)
+    w, h = face.x1 - face.x0, c1 - c0
+    rng = _rng(face)
+    pts: list[Pt] = []
+    for _ in range(4000):  # dart throwing: a loose Poisson-disk set, leather-irregular
+        p = (rng.uniform(0, w), rng.uniform(0, h))
+        if all(math.dist(p, q) > 0.8 * VORONOI_CELL for q in pts):
+            pts.append(p)
+    # mirror across the four sides: the rectangle edges become Voronoi edges, every cell bounded
+    mirrored = pts + [(-x, s) for x, s in pts] + [(2 * w - x, s) for x, s in pts]
+    mirrored += [(x, -s) for x, s in pts] + [(x, 2 * h - s) for x, s in pts]
+    vor = Voronoi(np.array(mirrored))
+    pads, failed = [], []
+    for i, (px, ps) in enumerate(pts):
+        region = vor.regions[vor.point_region[i]]
+        if -1 in region or not region:
+            continue
+        cell = [tuple(vor.vertices[v]) for v in region]
+        cell.sort(key=lambda q: math.atan2(q[1] - ps, q[0] - px))  # CCW around the seed
+        top = _inset([(x + face.x0, s) for x, s in cell], VORONOI_GROOVE / 2)
+        if top is None:
+            continue
+        top = _dedupe(top)
+        if len(top) < 3:
+            continue
+        run = (VORONOI_DEPTH + 0.02) * math.tan(math.radians(VORONOI_DRAFT))
+        foot = _miter(top, run)  # vertex-for-vertex outward offset: the loft pairs matching corners
+        a = Plane.XY.offset(0.01) * Polygon(*_sheared(face, top), align=None)
+        b = Plane.XY.offset(-VORONOI_DEPTH - 0.01) * Polygon(*_sheared(face, foot), align=None)
+        try:
+            pads.append(loft([a, b]))  # drafted pad: tapered extrusion's 2D offset fails on sharp cells
+        except Exception as err:
+            failed.append(err)
+    if failed:
+        raise RuntimeError(f"voronoi: {len(failed)} of {len(failed) + len(pads)} cell pads failed to loft")
+    slab = Pos((face.x0 + face.x1) / 2, (c0 + c1) / 2, (1 - VORONOI_DEPTH) / 2) * Box(w + 2, BIG, 1 + VORONOI_DEPTH)
+    return slab - Part(Compound(pads).wrapped)
+
+
+def _facets(face: _Face) -> Part:
+    """Faceted panel: one inverted pyramid per tile, apex at a random point and depth; every facet
+    turned toward the bed checked against PATTERN_MAX_UP (the apex is moved/shallowed until it is)."""
     (c0, k), (c1, _) = face.line(face.h0), face.line(face.h1)
-    ramp = PATTERN_DEPTH / math.tan(math.radians(PATTERN_RAMP))
-    first, last = c0 + ramp + r, c1 - r  # row centre lines at x = 0
-    rows = int((last - first) / dy) + 1
-    first += ((last - first) - (rows - 1) * dy) / 2  # centre the rows in the band
-    cols = int((face.x1 - face.x0 - HEX_FLATS) / dx) + 1
-    x_first = (face.x0 + face.x1) / 2 - (cols - 1) * dx / 2
-    cut = Part()
-    for j in range(rows):
-        shift = 0.5 * dx if j % 2 else 0.0
-        for i in range(cols):
-            x = x_first + i * dx + shift
-            if x + HEX_FLATS / 2 > face.x1:
-                continue
-            cut += Pos(x, first + j * dy + k * x, 0) * pocket
-    return cut
+    w, h = face.x1 - face.x0, c1 - c0
+    nx, ny = max(1, round(w / FACET_TILE)), max(1, round(h / FACET_TILE))
+    tw, th = w / nx, h / ny
+    rng = _rng(face)
+
+    def p3(x: float, s: float, z: float) -> Vector:
+        return Vector(x, c0 + k * x + s, z)
+
+    tiles = []
+    for j in range(ny):
+        for i in range(nx):
+            x, s = face.x0 + i * tw, j * th
+            corners = [p3(x, s, 0), p3(x + tw, s, 0), p3(x + tw, s + th, 0), p3(x, s + th, 0)]  # CCW
+            depth = rng.uniform(*FACET_DEPTH)
+            for attempt in range(60):
+                u, v = rng.uniform(0.25, 0.75), rng.uniform(0.35, 0.85)
+                apex = p3(x + u * tw, s + v * th, -depth)
+                normals = []
+                for a, b in zip(corners, corners[1:] + corners[:1], strict=True):
+                    n = (b - a).cross(apex - a).normalized()
+                    normals.append((a, n if n.Z > 0 else -n))
+                if all(n.Y <= PATTERN_MAX_UP for _, n in normals):
+                    break
+                if attempt % 10 == 9:
+                    depth *= 0.85
+            else:
+                continue  # no printable apex found: leave the tile flat
+            prism = Pos(0, 0, -2) * extrude(Polygon(*[(c.X, c.Y) for c in corners], align=None), amount=3)
+            for a, n in normals:
+                prism &= Location(Plane(origin=a, z_dir=n)) * Box(BIG, BIG, BIG, align=ABOVE)
+            tiles.append(prism)
+    return Part(Compound(tiles).wrapped)
 
 
-def _ripple(face: _Face) -> Part:
-    """Wide shallow grooves swept along a gentle sine, following the band (parallel to the top);
-    laid out so each whole groove stays inside the band -- only the face ends clip them."""
-    (c0, k), (c1, _) = face.line(face.h0), face.line(face.h1)
-    half = math.sqrt(2 * RIPPLE_R * PATTERN_DEPTH - PATTERN_DEPTH**2)  # groove half-width on the face
-    ramp = PATTERN_DEPTH / math.tan(math.radians(PATTERN_RAMP))
-    first, last = c0 + ramp + half + RIPPLE_AMP, c1 - half - RIPPLE_AMP
-    n = int((last - first) / RIPPLE_PITCH) + 1
-    first += ((last - first) - (n - 1) * RIPPLE_PITCH) / 2
-    xa, xb = face.x0 - 3, face.x1 + 3
-    axis_z = RIPPLE_R - PATTERN_DEPTH
-    cut = Part()
-    for j in range(n):
-        base = first + j * RIPPLE_PITCH
-        phase = j * math.pi / 2
-        xs = [xa + i * (xb - xa) / 24 for i in range(25)]
-        pts = [(x, base + k * x + RIPPLE_AMP * math.sin(2 * math.pi * x / RIPPLE_WAVE + phase), axis_z) for x in xs]
-        path = Spline(*pts)
-        profile = Plane(origin=path @ 0, z_dir=path % 0) * Circle(RIPPLE_R)
-        cut += sweep(profile, path=path)
-    return cut
+MAKERS = {"voronoi": _voronoi, "facets": _facets}
 
 
-MAKERS = {"flutes": _flutes, "knurl": _knurl, "hex": _hex, "ripple": _ripple}
-
-
-def skin_pattern(lay: Layout, pattern: Pattern) -> Part:
-    """The cutter of ``pattern`` over the front and side faces of the top case."""
+def skin_pattern(lay: Layout, pattern: Pattern) -> Part | None:
+    """The cutter of ``pattern`` over the front and side faces of the top case (None for ``fuzzy``)."""
+    if pattern not in MAKERS:
+        return None
     cut = Part()
     for face in _faces(lay):
         cut += face.loc * (MAKERS[pattern](face) & face.clip())
     return cut
+
+
+def fuzzy_modifier(lay: Layout) -> Part:
+    """Slicer modifier for ``fuzzy``: a FUZZY_SKIN-thick shell inside the front and side walls of the
+    top case, between the rebate and the top bevel, clear of the back (USB-C). Load it as a modifier
+    with fuzzy skin on: only the perimeters it encloses get fuzzed."""
+    t = math.radians(TILT)
+    top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)
+    skin = outline(lay, -0.5) - outline(lay, FUZZY_SKIN)
+    band = between(lay, REBATE_H + 0.3, top - TOP_EDGE - 0.4)
+    back = Pos(0, lay.depth / 2 - R_CORNER - 0.5, 0) * Box(BIG, BIG, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER))
+    return (skin & band) - back

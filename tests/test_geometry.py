@@ -17,6 +17,7 @@ from dais.display import make_keycap
 from dais.layout import Layout
 from dais.params import BOARDS, FUNNEL_BOTTOM, LEGACY, PATTERNS, PLATE_RELIEF, SW_CUT, TILT, Options
 from dais.parts import make_coupon
+from dais.patterns import MAKERS, fuzzy_modifier
 from dais.split import split_bosses
 
 GOLDEN = {
@@ -77,7 +78,7 @@ def test_top_shell_prints_without_supports(built: Built, name: str) -> None:
     assert (FUNNEL_BOTTOM - SW_CUT) / 2 <= 1.0
 
 
-@pytest.mark.parametrize("pattern", PATTERNS)
+@pytest.mark.parametrize("pattern", ["voronoi", "facets"])
 @pytest.mark.parametrize("name", ["split", "split-trapezoid"])
 def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> None:
     opt = Options(pattern=pattern)
@@ -86,6 +87,22 @@ def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> N
     plain = d.parts(d.layout(BOARD))["top-case"]
     assert parts["top-case"].volume < plain.volume - 50  # the relief really is cut
     assert [o for o in _overhangs(parts["top-case"], lay) if not _is_seat_ring(o)] == []
+
+
+def test_fuzzy_is_a_slicer_modifier_only() -> None:
+    d = DESIGNS["split"]
+    lay = d.layout(BOARD, Options(pattern="fuzzy"))
+    top = d.parts(lay)["top-case"]
+    assert top.volume == pytest.approx(d.parts(d.layout(BOARD))["top-case"].volume, rel=1e-9)  # geometry unchanged
+    mod = fuzzy_modifier(lay)
+    assert mod.is_valid and len(mod.solids()) == 1
+    assert (mod & top).volume > 1000  # it encloses the outer walls...
+    box = mod.bounding_box()
+    assert box.max.Z < lay.h_back - 0.5 and box.max.Y < lay.depth / 2 - 1  # ...not the top face, not the back
+
+
+def test_patterns_list() -> None:
+    assert set(PATTERNS) == {"fuzzy", *MAKERS}
 
 
 @pytest.mark.parametrize("name", list(DESIGNS))

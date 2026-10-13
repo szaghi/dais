@@ -44,8 +44,10 @@ is generated too but is what the docs and README display, so re-render after geo
   table, bevel deg, pattern) travels in `Layout.opt`; defaults = integrated plate + M3 inserts +
   60 deg bevels. `LEGACY` = the first prototypes and must reproduce
   `tests/golden_volumes_legacy.json` EXACTLY -- never regenerate that file to make a test pass.
-  `patterns.py`: flutes/knurl/hex/ripple cutters on the split top case (front + sides), built per
-  face in a local frame and clipped to a band; overhang-checked by the tests. CLI variants:
+  `patterns.py`: `voronoi`/`facets` cutters on the split top case (front + sides), built per face
+  in a local frame and clipped to a band, overhang-checked by the tests (relief faces toward the
+  bed: normal up-component <= PATTERN_MAX_UP); `fuzzy` = no geometry, exports a slicer modifier
+  (`modifier-fuzzy-skin.stl`). The owner rejected flutes/knurl/hex/ripple: don't bring them back. CLI variants:
   `--pattern X|all` -> `out/<board>/<design>-<pattern>/` + `options.json`.
 - `designs.py`: `DESIGNS` registry -- `side-cove`, `wrap-cove`, `split`, `split-trapezoid`.
   A new design is one `Design` entry; CLI, output tree and renderer pick it up (add its docs
@@ -72,10 +74,14 @@ is generated too but is what the docs and README display, so re-render after geo
   plate corner was dropped at one corner of four. Cut before filleting; verify symmetric cuts.
   `check()` catches overlap, not clearance -- clearance needs its own test.
 - Coincident faces in a union give an invalid solid: trim by 0.01 mm.
+- Blender's STL importer applies `global_scale` as an OBJECT scale (mesh data stays in mm):
+  `blender_scene.import_mesh` bakes it into the mesh, or object-coordinate textures (layer lines,
+  fleck, fuzzy grain) run 1000x too fine and vanish. Probe cameras need `clip_start` < 0.1 m.
 - Worker pools use the **spawn** context: forking after OCC/fontconfig work in-process deadlocks
   the child (seen in tests calling `main()` twice).
-- Many crossing cutters (knurl): pass one `Compound` to a single boolean, never fuse in a loop
-  (90 s -> 5 s). Closed ellipse edges crash the SVG exporter: `render._drawable` splits them.
+- Many cutters (voronoi pads, facet tiles): pass one `Compound` to a single boolean, never fuse
+  in a loop (90 s -> 5 s). Convex offsets: half-plane clipping inward (`_inset`), miter outward
+  (`_miter`, vertex-for-vertex so lofts pair corners); build123d's tapered extrude fails on sharp cells. Closed ellipse edges crash the SVG exporter: `render._drawable` splits them.
 - Edge breaks select faces by position (`sort_by(Axis.Z)[0]`, seam face along the tilted
   normal): adding lower/higher faces before them changes what gets chamfered.
 - `tests/golden_volumes.json` pins every part volume (rel 1e-9). After an **intended** geometry

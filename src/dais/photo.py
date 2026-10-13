@@ -206,11 +206,12 @@ def photo(
         mesh_dir, raw_dir = work / dirname / "mesh", work / dirname / "raw"
         for p in (mesh_dir, raw_dir, out / dirname):
             p.mkdir(parents=True, exist_ok=True)
+        materials = {**MATERIAL, "shell": "asa-fuzzy"} if opt.pattern == "fuzzy" else MATERIAL
         meshes = []
         for key, solid in solids.items():
             path = mesh_dir / f"{key}.stl"
             export_stl(solid, str(path), tolerance=0.005, angular_tolerance=0.05)
-            meshes.append({"name": key, "file": str(path), "material": MATERIAL[key]})
+            meshes.append({"name": key, "file": str(path), "material": materials[key]})
         todo = [s for s in shots(split) if not only or s.name in only]
         scene = work / dirname / "scene.json"
         shot_list = [

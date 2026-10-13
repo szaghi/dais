@@ -70,8 +70,9 @@ def make_top_case(lay: Layout) -> Part:
         top -= (Pos(x, y, -1) * Cylinder(fast.hole_d / 2, lay.big, align=MIN)) & half_space(
             lay, REBATE_H + fast.hole_depth, above=False
         )
-    if lay.opt.pattern:
-        top -= skin_pattern(lay, lay.opt.pattern)
+    cut = skin_pattern(lay, lay.opt.pattern) if lay.opt.pattern else None
+    if cut is not None:  # fuzzy has no cutter: the slicer does it, through ``fuzzy_modifier``
+        top -= cut
     return top - usb_cuts(lay)
 
 

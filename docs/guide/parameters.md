@@ -102,20 +102,19 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `PATTERN_DEPTH` | 0.5 | relief depth into the 3 mm wall |
-| `PATTERN_RAMP` | 56.0 | lower groove ends ramp out at this angle from the wall: >= 45 + TILT + margin, as printed |
+| `PATTERN_RAMP` | 56.0 | lower band edge ramps out at this angle from the wall: >= 45 + TILT + margin, as printed |
 | `PATTERN_MARGIN` | 1.2 | clear of the corner rounds, along each face |
 | `PATTERN_BOTTOM` | 0.8 | band starts this far above the rebate top (full wall thickness behind it) |
 | `PATTERN_TOP` | 1.0 | band stops this far below the top bevel |
-| `FLUTE_R` | 1.0 | flutes: cutter radius (0.45 deep -> ~1.7 mm wide) |
-| `FLUTE_PITCH` | 2.6 |  |
-| `KNURL_PITCH` | 2.4 | knurl: 90 deg V-grooves at +-45 deg |
-| `HEX_FLATS` | 3.0 | hex scales: across flats at the surface; walls drafted 45 deg |
-| `HEX_GAP` | 0.7 |  |
-| `RIPPLE_R` | 4.0 | ripple: wide shallow grooves swept along a sine |
-| `RIPPLE_PITCH` | 3.2 |  |
-| `RIPPLE_AMP` | 0.5 |  |
-| `RIPPLE_WAVE` | 14.0 |  |
+| `PATTERN_MAX_UP` | 0.55 | relief faces turned toward the bed: normal up-component cap (~33 deg + 7 deg tilt < 45) |
+| `PATTERN_SEED` | 7 | random layouts are reproducible |
+| `FUZZY_SKIN` | 1.2 | fuzzy: modifier shell thickness inside the outer wall (slicer fuzzy skin applies there) |
+| `VORONOI_CELL` | 3.6 | voronoi: mean cell spacing |
+| `VORONOI_GROOVE` | 1.6 | groove width at the surface |
+| `VORONOI_DEPTH` | 0.45 | groove depth |
+| `VORONOI_DRAFT` | 58.0 | groove wall angle from the wall normal (>= 57: printable top down) |
+| `FACET_TILE` | 6.0 | facets: target tile size (an inverted pyramid per tile) |
+| `FACET_DEPTH` | (0.6, 1.3) | apex depth range into the 3 mm wall |
 
 ## Fasteners
 
@@ -143,4 +142,4 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `bevel` | 60.0 | 45.0 |
 | `pattern` | None | None |
 
-`PATTERNS`: `flutes`, `knurl`, `hex`, `ripple` (split top case sides).
+`PATTERNS`: `fuzzy`, `voronoi`, `facets` (split top case sides).

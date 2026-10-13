@@ -25,16 +25,17 @@ def test_build_writes_design_tree(tmp_path: Path) -> None:
 
 
 def test_build_legacy_pattern_variant(tmp_path: Path) -> None:
-    main(["build", "--design", "split", "--legacy", "--pattern", "flutes", "--out", str(tmp_path), "-j", "1"])
-    variant = tmp_path / "microsam" / "split-flutes"
+    main(["build", "--design", "split", "--legacy", "--pattern", "fuzzy", "--out", str(tmp_path), "-j", "1"])
+    variant = tmp_path / "microsam" / "split-fuzzy"
     assert (variant / "stl" / "plate.stl").exists()  # legacy: separate plate
+    assert (variant / "stl" / "modifier-fuzzy-skin.stl").exists()  # the slicer modifier
     opt = json.loads((variant / "options.json").read_text())
-    assert opt == {"plate": "separate", "fastener": "self-tap", "bevel": 45.0, "pattern": "flutes"}
+    assert opt == {"plate": "separate", "fastener": "self-tap", "bevel": 45.0, "pattern": "fuzzy"}
 
 
 def test_variants_apply_patterns_to_split_designs_only() -> None:
-    names = [d for _, _, d in variants(list(DESIGNS), Options(), [None, "hex"])]
-    assert names == ["side-cove", "wrap-cove", "split", "split-trapezoid", "split-hex", "split-trapezoid-hex"]
+    names = [d for _, _, d in variants(list(DESIGNS), Options(), [None, "facets"])]
+    assert names == ["side-cove", "wrap-cove", "split", "split-trapezoid", "split-facets", "split-trapezoid-facets"]
 
 
 def test_list(capsys: pytest.CaptureFixture[str]) -> None:

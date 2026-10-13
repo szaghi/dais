@@ -29,6 +29,7 @@ Things only a print can confirm:
 - the 60 deg bevels on the bed against the 45 deg ones of the first prints;
 - the M3 inserts seating straight in the R4 columns, and the split cases' lip in the rebate
   (0.15 mm per side);
-- the skin patterns' 0.5 mm relief at your nozzle size (0.4 mm resolves them; finer is better).
+- the skin patterns at your nozzle size: voronoi grooves are 0.45 mm deep and ~1.6 mm wide, facets
+  up to 1.3 mm deep; fuzzy skin needs the modifier set up in the slicer.
 
 The RP2040-Zero profile uses datasheet numbers only; measure the board before printing for it.

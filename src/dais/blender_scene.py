@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 MM = 0.001  # STL in mm, scene in metres
 LAYER = 0.2 * MM  # printed layer height
@@ -23,6 +23,7 @@ MATERIALS = {
     # name: base colour (linear), roughness, layer-line tilt (deg about X) or None
     "asa-cf": ((0.032, 0.034, 0.037), 0.62, 7.0),  # top shells: printed top down, layers // top
     "asa-cf-flat": ((0.032, 0.034, 0.037), 0.62, 0.0),  # printed flat: layers // floor
+    "asa-fuzzy": ((0.032, 0.034, 0.037), 0.75, None),  # slicer fuzzy skin: shown as a coarse noise bump
     "keycap": ((0.88, 0.88, 0.86), 0.42, None),  # white PBT
     "switch": ((0.012, 0.012, 0.013), 0.35, None),
     "tpu": ((0.010, 0.010, 0.010), 0.85, None),
@@ -42,6 +43,30 @@ def material(name: str) -> bpy.types.Material:
     bsdf.inputs["Roughness"].default_value = rough
     if name == "metal":
         bsdf.inputs["Metallic"].default_value = 1.0
+    if name == "asa-fuzzy":  # ~0.3 mm grain, the look of fuzzy-skin perimeters (no geometry: slicer-made)
+        coord = nt.nodes.new("ShaderNodeTexCoord")
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 1500.0  # ~0.66 mm grain, like fuzzy-skin point spacing
+        noise.inputs["Detail"].default_value = 2.0
+        noise.inputs["Roughness"].default_value = 0.7
+        nt.links.new(coord.outputs["Object"], noise.inputs["Vector"])
+        bump = nt.nodes.new("ShaderNodeBump")
+        bump.inputs["Distance"].default_value = 1.5 * MM  # dark ASA shows little shading: be generous
+        nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+        nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+        # walls only: the slicer fuzzes perimeters, the top face (printed on the bed) stays smooth
+        geo = nt.nodes.new("ShaderNodeNewGeometry")
+        xyz = nt.nodes.new("ShaderNodeSeparateXYZ")
+        nt.links.new(geo.outputs["Normal"], xyz.inputs["Vector"])
+        mask = nt.nodes.new("ShaderNodeMapRange")  # |n.z| 0.4 -> 0.8 maps strength 1 -> 0
+        absz = nt.nodes.new("ShaderNodeMath")
+        absz.operation = "ABSOLUTE"
+        nt.links.new(xyz.outputs["Z"], absz.inputs[0])
+        nt.links.new(absz.outputs["Value"], mask.inputs["Value"])
+        mask.inputs["From Min"].default_value, mask.inputs["From Max"].default_value = 0.4, 0.8
+        mask.inputs["To Min"].default_value, mask.inputs["To Max"].default_value = 1.0, 0.0
+        nt.links.new(mask.outputs["Result"], bump.inputs["Strength"])
+        return mat
     if tilt is None:
         return mat
     coord = nt.nodes.new("ShaderNodeTexCoord")
@@ -80,9 +105,14 @@ def import_mesh(path: str, name: str, mat: bpy.types.Material) -> bpy.types.Obje
     before = set(bpy.data.objects)
     bpy.ops.wm.stl_import(filepath=path, global_scale=MM)
     (obj,) = set(bpy.data.objects) - before  # not selected_objects[0]: earlier objects may stay selected
+    # the importer applies global_scale as an OBJECT scale (mesh data stays in mm): bake it into the
+    # mesh, or every procedural texture in object coordinates runs 1000x too fine and vanishes
+    obj.data.transform(Matrix.Diagonal((*obj.scale, 1.0)))
+    obj.scale = (1.0, 1.0, 1.0)
     obj.name = name
     obj.data.shade_smooth()
-    obj.data.set_sharp_from_angle(angle=math.radians(35))
+    # curves are tessellated < 3 deg apart: still smooth at 8; facet ridges and groove edges stay crisp
+    obj.data.set_sharp_from_angle(angle=math.radians(8))
     obj.data.materials.append(mat)
     return obj
 

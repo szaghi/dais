@@ -8,11 +8,11 @@ each one can be switched from the command line, and `--legacy` rebuilds the firs
 | Switch plate | **integrated** in the top shell | `separate` (screwed, 4x M2x4) | `--plate` |
 | Case screws | **M3 heat-set inserts** + M3 button heads | `self-tap` (M2 self-tapping, printed pilots) | `--fastener` |
 | Bevel angle | **60 deg** from horizontal | any; 45 = the first prototypes | `--bevel` |
-| Skin pattern | none | `flutes`, `knurl`, `hex`, `ripple`, `all` (split designs) | `--pattern` |
+| Skin pattern | none | `fuzzy`, `voronoi`, `facets`, `all` (split designs) | `--pattern` |
 
 ```bash
 dais build                                  # defaults -> out/microsam/<design>/
-dais build --pattern knurl                  # -> out/microsam/split-knurl/, split-trapezoid-knurl/
+dais build --pattern voronoi                # -> out/microsam/split-voronoi/, split-trapezoid-voronoi/
 dais build --pattern all --design split     # every pattern on the split case
 dais build --legacy                         # separate plate, M2 self-tapping, 45 deg bevels
 ```
@@ -64,29 +64,46 @@ different defect: brim, enclosure, bed temperature.
 
 ## Skin patterns
 
-Optional textures on the front and both sides of the split top case (the back, with the USB-C,
-stays plain), 0.5 mm deep in the 3 mm wall, in a band parallel to the top. Each is shaped to
-print top down without supports: no surface faces the bed at more than 45 deg, and the lower
-groove ends ramp out at 56 deg (49 deg once the 7 deg print tilt is counted) instead of
-stopping on a flat ceiling. The tests check every pattern for overhangs.
+Optional textures for the front and both sides of the split top case; the back, with the
+USB-C, stays plain. Each covers a band parallel to the top, from just above the rebate to just
+under the top bevel.
 
-| Pattern | Geometry |
-|---|---|
-| `flutes` | vertical grooves, R1.0 cutter, 2.6 mm pitch |
-| `knurl` | crossed 90 deg V-grooves at +-45 deg, 2.4 mm pitch: raised diamonds |
-| `hex` | pointy-top hexagonal pockets, 3.0 mm across flats, 45 deg drafted walls, rows parallel to the top |
-| `ripple` | wide shallow grooves (R4) swept along a gentle sine, parallel to the top |
+### fuzzy -- fuzzy skin, done by the slicer
+
+Fuzzy skin is a slicer feature (OrcaSlicer, PrusaSlicer, Bambu Studio): the outer perimeter
+is jittered while printing, which no CAD model can match. `--pattern fuzzy` leaves the geometry
+untouched and adds **`modifier-fuzzy-skin.stl`** next to the parts: a 1.2 mm shell inside the
+front and side walls. In the slicer, add it to the top case as a **modifier** and enable fuzzy
+skin (outer walls) on that modifier only -- the top face, the bevels, the seam and the back
+stay crisp.
+
+### voronoi -- leather cells
+
+Irregular raised cells, about 3.6 mm across, over the whole band, separated by V grooves
+0.45 mm deep (a Voronoi diagram of a loose Poisson-disk point set, fixed seed: every build is
+the same).
+
+### facets -- faceted panel
+
+One inverted pyramid per ~6 mm tile, its apex at a random point and depth (0.6-1.3 mm), the
+tile edges flush with the wall: the low-poly look of 3D wall panels.
+
+### Printing them
+
+The top case prints top face down, so every relief face turned toward the bed is limited to
+about 33 deg from the wall -- 40 deg once the 7 deg print tilt is counted, under the 45 deg
+rule. The voronoi groove walls are drafted 58 deg; each facets apex is moved, or made
+shallower, until its four facets pass; the band's lower edge ramps out at 56 deg instead of
+ending on a flat ceiling. The tests check both patterns for overhangs on both split designs.
 
 <Views :views="[
-  ['split-flutes/detail', 'flutes'],
-  ['split-knurl/detail', 'knurl'],
-  ['split-hex/detail', 'hex'],
-  ['split-ripple/detail', 'ripple'],
+  ['split-voronoi/detail', 'voronoi'],
+  ['split-facets/detail', 'facets'],
 ]" />
 
 <Views photo :views="[
-  ['split-flutes/hero', 'flutes'],
-  ['split-knurl/hero', 'knurl'],
-  ['split-hex/hero', 'hex'],
-  ['split-ripple/hero', 'ripple'],
+  ['split-fuzzy/hero', 'fuzzy (slicer; rendered as grain)'],
+  ['split-voronoi/hero', 'voronoi'],
+  ['split-facets/hero', 'facets'],
+  ['split-voronoi/low', 'voronoi, low three-quarter'],
 ]" />

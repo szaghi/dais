@@ -25,7 +25,8 @@ well inside wide bezels, crisp chamfered edges, single-wall sculpted sides and n
 All four: 44.8 mm deep, 19.7 mm high at the front and 25.2 mm at the back (+0.8 mm feet);
 ASA-CF shells with the **switch plate built in**, **M3 heat-set inserts**, TPU feet, every shell
 printable without supports (60 deg bevels on the bed). The split designs take optional **skin
-patterns** -- flutes, knurl, hex scales, ripple -- and `--legacy` rebuilds the first prototypes
+patterns** -- fuzzy skin (via a slicer modifier), voronoi leather cells, facets -- and `--legacy`
+rebuilds the first prototypes
 (separate plate, M2 self-tapping). See [Options and patterns](docs/designs/options.md).
 
 ## Quick start
@@ -45,8 +46,8 @@ out/microsam/
 └── coupon/           {stl,step}/  coupon
 ```
 
-`dais build --pattern knurl` adds `split-knurl/` and `split-trapezoid-knurl/` (any of `flutes`,
-`knurl`, `hex`, `ripple`, or `all`). Each design directory is a complete print set. Print `coupon/` first and set `SW_CUT` from it.
+`dais build --pattern voronoi` adds `split-voronoi/` and `split-trapezoid-voronoi/` (any of
+`fuzzy`, `voronoi`, `facets`, or `all`). Each design directory is a complete print set. Print `coupon/` first and set `SW_CUT` from it.
 Parts are exported in assembly position: shells print **top face on the bed** (see
 [Printing](docs/guide/printing.md)).
 

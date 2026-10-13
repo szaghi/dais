@@ -42,7 +42,7 @@ features:
     linkText: Printing
   - icon: 🔩
     title: Heat-set inserts and skin patterns
-    details: M3 brass inserts in the screw columns, no plate screws at all; optional flutes, knurl, hex scales or ripple on the split top case.
+    details: M3 brass inserts in the screw columns, no plate screws at all; optional fuzzy skin, voronoi leather or faceted panels on the split top case.
     link: /designs/options
     linkText: Options and patterns
   - icon: 🔌

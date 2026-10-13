@@ -17,6 +17,7 @@ from build123d import Part, export_step, export_stl
 from .designs import DESIGNS, Variant, variants
 from .params import BOARDS, FASTENERS, FOOT_RECESS, FOOT_T, LEGACY, PATTERNS, TILT, Fastener, Options
 from .parts import make_coupon
+from .patterns import fuzzy_modifier
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ def _build_one(board: str, name: str, opt: Options, dirname: str, out: str) -> s
     parts = design.build(board, opt)
     directory = Path(out) / board / dirname
     export(parts, directory)
+    if opt.pattern == "fuzzy":  # not a printed part: a slicer modifier volume, kept out of check()
+        export({"modifier-fuzzy-skin": fuzzy_modifier(lay)}, directory)
     (directory / "options.json").write_text(json.dumps(asdict(opt), indent=1) + "\n")
     vols = ", ".join(f"{p} {s.volume / 1000:.1f}" for p, s in parts.items())
     return (
