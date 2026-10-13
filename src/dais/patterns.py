@@ -36,7 +36,9 @@ from .layout import Layout, between
 from .params import (
     FACET_DEPTH,
     FACET_TILE,
+    FULL_MARGIN,
     FUZZY_SKIN,
+    MIN_WALL,
     PATTERN_BOTTOM,
     PATTERN_MARGIN,
     PATTERN_MAX_UP,
@@ -45,6 +47,8 @@ from .params import (
     PATTERN_TOP,
     R_CORNER,
     REBATE_H,
+    RIM_R,
+    RIM_WALL,
     SPLIT_FRONT_Z,
     TILT,
     TOP_EDGE,
@@ -64,7 +68,7 @@ BELOW = (Align.CENTER, Align.CENTER, Align.MAX)
 class _Face:
     """A planar side face of the top case: local frame, extent along it, and the pattern band."""
 
-    def __init__(self, lay: Layout, face: Face) -> None:
+    def __init__(self, lay: Layout, face: Face, full: bool = False) -> None:
         t = math.radians(TILT)
         n = face.normal_at(face.center())
         n = Vector(n.X, n.Y, 0).normalized()
@@ -72,14 +76,21 @@ class _Face:
         c = face.center()
         self.loc = Location(Plane(origin=(c.X, c.Y, 0), x_dir=u, z_dir=n))
         xs = [(Vector(v) - Vector(c.X, c.Y, 0)).dot(u) for v in face.vertices()]
-        self.x0, self.x1 = min(xs) + PATTERN_MARGIN, max(xs) - PATTERN_MARGIN
+        margin = FULL_MARGIN if full else PATTERN_MARGIN
+        self.x0, self.x1 = min(xs) + margin, max(xs) - margin
         # band in parting-frame heights: above the rebate, below the top bevel
         self._p0 = Vector(0, -lay.depth / 2, SPLIT_FRONT_Z)
         self._nrm = Vector(0, -math.sin(t), math.cos(t))
         self._c, self._u = Vector(c.X, c.Y, 0), u
         top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)  # parting plane -> top face
-        self.h0 = REBATE_H + PATTERN_BOTTOM
-        self.h1 = top - TOP_EDGE - PATTERN_TOP
+        if full:  # the whole flat side: from the rim round's tangent line to the top bevel line
+            self.h0, self.h1 = RIM_R + FULL_MARGIN, top - TOP_EDGE - FULL_MARGIN
+        else:  # a band above the rebate (full wall thickness behind it)
+            self.h0, self.h1 = REBATE_H + PATTERN_BOTTOM, top - TOP_EDGE - PATTERN_TOP
+
+    def h_at(self, x: float, y: float) -> float:
+        """Parting-frame height of the local face point (x, y)."""
+        return (self._c + self._u * x - self._p0).dot(self._nrm) + y * self._nrm.Z
 
     def y_at(self, x: float, h: float) -> float:
         """Local y (world z) where the face meets parting-frame height ``h``, at local ``x``."""
@@ -109,7 +120,7 @@ class _Face:
         return min(ys), max(ys)
 
 
-def _faces(lay: Layout) -> list[_Face]:
+def _faces(lay: Layout, full: bool = False) -> list[_Face]:
     """Front and side faces of the outer shell (vertical and planar); not the back (USB-C)."""
     out = []
     for f in outer_shell(lay).faces():
@@ -117,7 +128,7 @@ def _faces(lay: Layout) -> list[_Face]:
             continue
         n = f.normal_at(f.center())
         if abs(n.Z) < 1e-6 and n.Y < 0.9:
-            out.append(_Face(lay, f))
+            out.append(_Face(lay, f, full))
     return out
 
 
@@ -280,6 +291,15 @@ def _facets(face: _Face) -> Part:
                     depth *= 0.85
             else:
                 continue  # no printable apex found: leave the tile flat
+            # over the rebate the wall is only RIM_WALL thick: cap the depth so MIN_WALL remains
+            ratio = _rebate_depth_ratio(face, corners, normals, depth)
+            if ratio > 0 and depth * ratio > RIM_WALL - MIN_WALL:
+                depth = (RIM_WALL - MIN_WALL) / ratio
+                apex = Vector(apex.X, apex.Y, -depth)
+                normals = []
+                for a, b in zip(corners, corners[1:] + corners[:1], strict=True):
+                    n = (b - a).cross(apex - a).normalized()
+                    normals.append((a, n if n.Z > 0 else -n))
             prism = Pos(0, 0, -2) * extrude(Polygon(*[(c.X, c.Y) for c in corners], align=None), amount=3)
             for a, n in normals:
                 prism &= Location(Plane(origin=a, z_dir=n)) * Box(BIG, BIG, BIG, align=ABOVE)
@@ -287,26 +307,56 @@ def _facets(face: _Face) -> Part:
     return Part(Compound(tiles).wrapped)
 
 
+def _rebate_depth_ratio(
+    face: _Face, corners: list[Vector], normals: list[tuple[Vector, Vector]], depth: float
+) -> float:
+    """Largest relief depth over the rebate zone, as a fraction of the apex depth (0 if none there)."""
+    worst = 0.0
+    for i in range(11):
+        for j in range(11):
+            a, b = i / 10, j / 10  # bilinear over the (sheared) tile
+            p = (
+                corners[0] * (1 - a) * (1 - b)
+                + corners[1] * a * (1 - b)
+                + corners[2] * a * b
+                + corners[3] * (1 - a) * b
+            )
+            if face.h_at(p.X, p.Y) > REBATE_H + 0.3:
+                continue
+            z = max(o.Z - (n.X * (p.X - o.X) + n.Y * (p.Y - o.Y)) / n.Z for o, n in normals)  # the relief surface
+            worst = max(worst, -z / depth)
+    return worst
+
+
 MAKERS = {"voronoi": _voronoi, "facets": _facets}
 
 
+def is_full(pattern: Pattern) -> bool:
+    """A ``-full`` variant: the whole flat side instead of a band."""
+    return pattern.endswith("-full")
+
+
 def skin_pattern(lay: Layout, pattern: Pattern) -> Part | None:
-    """The cutter of ``pattern`` over the front and side faces of the top case (None for ``fuzzy``)."""
-    if pattern not in MAKERS:
+    """The cutter of ``pattern`` over the front and side faces of the top case (None for fuzzy)."""
+    base = pattern.removesuffix("-full")
+    if base not in MAKERS:
         return None
     cut = Part()
-    for face in _faces(lay):
-        cut += face.loc * (MAKERS[pattern](face) & face.clip())
+    for face in _faces(lay, is_full(pattern)):
+        cut += face.loc * (MAKERS[base](face) & face.clip())
     return cut
 
 
-def fuzzy_modifier(lay: Layout) -> Part:
+def fuzzy_modifier(lay: Layout, full: bool = False) -> Part:
     """Slicer modifier for ``fuzzy``: a FUZZY_SKIN-thick shell inside the front and side walls of the
     top case, between the rebate and the top bevel, clear of the back (USB-C). Load it as a modifier
     with fuzzy skin on: only the perimeters it encloses get fuzzed."""
     t = math.radians(TILT)
     top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)
     skin = outline(lay, -0.5) - outline(lay, FUZZY_SKIN)
-    band = between(lay, REBATE_H + 0.3, top - TOP_EDGE - 0.4)
+    if full:  # the whole flat side, rim round to top bevel
+        band = between(lay, RIM_R + 0.2, top - TOP_EDGE - 0.2)
+    else:
+        band = between(lay, REBATE_H + 0.3, top - TOP_EDGE - 0.4)
     back = Pos(0, lay.depth / 2 - R_CORNER - 0.5, 0) * Box(BIG, BIG, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER))
     return (skin & band) - back

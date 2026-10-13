@@ -121,6 +121,9 @@ VORONOI_DEPTH = 0.45  # groove depth
 VORONOI_DRAFT = 58.0  # groove wall angle from the wall normal (>= 57: printable top down)
 FACET_TILE = 6.0  # facets: target tile size (an inverted pyramid per tile)
 FACET_DEPTH = (1.0, 1.8)  # apex depth range into the 3 mm wall (>= 1.2 mm of wall left)
+# "-full" variants: the whole flat side, from the rim round at the seam up to the top bevel line
+FULL_MARGIN = 0.3  # clear of the corner rounds, the rim round and the top bevel
+MIN_WALL = 1.0  # wall left behind any relief; over the rebate (RIM_WALL thick) it caps the depth
 
 
 # --- Fasteners -------------------------------------------------------------------------
@@ -152,8 +155,8 @@ FASTENERS = {
 
 
 # --- Build options -----------------------------------------------------------------------
-Pattern = Literal["fuzzy", "voronoi", "facets"]
-PATTERNS: tuple[str, ...] = ("fuzzy", "voronoi", "facets")
+Pattern = Literal["fuzzy", "voronoi", "facets", "fuzzy-full", "voronoi-full", "facets-full"]
+PATTERNS: tuple[str, ...] = ("fuzzy", "voronoi", "facets", "fuzzy-full", "voronoi-full", "facets-full")
 
 
 @dataclass(frozen=True)

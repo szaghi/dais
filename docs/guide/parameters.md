@@ -114,7 +114,9 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `VORONOI_DEPTH` | 0.45 | groove depth |
 | `VORONOI_DRAFT` | 58.0 | groove wall angle from the wall normal (>= 57: printable top down) |
 | `FACET_TILE` | 6.0 | facets: target tile size (an inverted pyramid per tile) |
-| `FACET_DEPTH` | (0.6, 1.3) | apex depth range into the 3 mm wall |
+| `FACET_DEPTH` | (1.0, 1.8) | apex depth range into the 3 mm wall (>= 1.2 mm of wall left) |
+| `FULL_MARGIN` | 0.3 | clear of the corner rounds, the rim round and the top bevel |
+| `MIN_WALL` | 1.0 | wall left behind any relief; over the rebate (RIM_WALL thick) it caps the depth |
 
 ## Fasteners
 
@@ -142,4 +144,4 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `bevel` | 60.0 | 45.0 |
 | `pattern` | None | None |
 
-`PATTERNS`: `fuzzy`, `voronoi`, `facets` (split top case sides).
+`PATTERNS`: `fuzzy`, `voronoi`, `facets`, `fuzzy-full`, `voronoi-full`, `facets-full` (split top case sides).

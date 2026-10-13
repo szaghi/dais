@@ -206,7 +206,8 @@ def photo(
         mesh_dir, raw_dir = work / dirname / "mesh", work / dirname / "raw"
         for p in (mesh_dir, raw_dir, out / dirname):
             p.mkdir(parents=True, exist_ok=True)
-        materials = {**MATERIAL, "shell": "asa-fuzzy"} if opt.pattern == "fuzzy" else MATERIAL
+        fuzzy = bool(opt.pattern) and opt.pattern.startswith("fuzzy")
+        materials = {**MATERIAL, "shell": "asa-fuzzy"} if fuzzy else MATERIAL
         meshes = []
         for key, solid in solids.items():
             path = mesh_dir / f"{key}.stl"

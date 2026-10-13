@@ -14,10 +14,24 @@ from conftest import BOARD, Built, build_all
 from dais import params
 from dais.designs import DESIGNS, check
 from dais.display import make_keycap
-from dais.layout import Layout
-from dais.params import BOARDS, FUNNEL_BOTTOM, LEGACY, PATTERNS, PLATE_RELIEF, SW_CUT, TILT, Options
+from dais.layout import Layout, between
+from dais.params import (
+    BOARDS,
+    FUNNEL_BOTTOM,
+    LEGACY,
+    MIN_WALL,
+    PATTERNS,
+    PLATE_RELIEF,
+    REBATE_H,
+    RIM_WALL,
+    SW_CUT,
+    TILT,
+    WALL,
+    Options,
+)
 from dais.parts import make_coupon
-from dais.patterns import MAKERS, fuzzy_modifier
+from dais.patterns import MAKERS, fuzzy_modifier, skin_pattern
+from dais.shell import outline
 from dais.split import split_bosses
 
 GOLDEN = {
@@ -78,7 +92,7 @@ def test_top_shell_prints_without_supports(built: Built, name: str) -> None:
     assert (FUNNEL_BOTTOM - SW_CUT) / 2 <= 1.0
 
 
-@pytest.mark.parametrize("pattern", ["voronoi", "facets"])
+@pytest.mark.parametrize("pattern", ["voronoi", "facets", "voronoi-full", "facets-full"])
 @pytest.mark.parametrize("name", ["split", "split-trapezoid"])
 def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> None:
     opt = Options(pattern=pattern)
@@ -89,12 +103,24 @@ def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> N
     assert [o for o in _overhangs(parts["top-case"], lay) if not _is_seat_ring(o)] == []
 
 
-def test_fuzzy_is_a_slicer_modifier_only() -> None:
+@pytest.mark.parametrize("pattern", ["voronoi", "facets", "voronoi-full", "facets-full"])
+def test_patterns_leave_min_wall(pattern: str) -> None:
+    """No relief deeper than the wall allows: MIN_WALL left everywhere, also over the thin rebate."""
+    lay = DESIGNS["split"].layout(BOARD, Options(pattern=pattern))
+    cut = skin_pattern(lay, pattern)
+    rebate = outline(lay, RIM_WALL - MIN_WALL + 0.01) & between(lay, -1.0, REBATE_H)
+    for zone in (rebate, outline(lay, WALL - MIN_WALL + 0.01)):
+        deep = cut & zone
+        assert not deep.solids() or deep.volume < 1e-3
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_fuzzy_is_a_slicer_modifier_only(full: bool) -> None:
     d = DESIGNS["split"]
-    lay = d.layout(BOARD, Options(pattern="fuzzy"))
+    lay = d.layout(BOARD, Options(pattern="fuzzy-full" if full else "fuzzy"))
     top = d.parts(lay)["top-case"]
     assert top.volume == pytest.approx(d.parts(d.layout(BOARD))["top-case"].volume, rel=1e-9)  # geometry unchanged
-    mod = fuzzy_modifier(lay)
+    mod = fuzzy_modifier(lay, full)
     assert mod.is_valid and len(mod.solids()) == 1
     assert (mod & top).volume > 1000  # it encloses the outer walls...
     box = mod.bounding_box()
@@ -102,7 +128,7 @@ def test_fuzzy_is_a_slicer_modifier_only() -> None:
 
 
 def test_patterns_list() -> None:
-    assert set(PATTERNS) == {"fuzzy", *MAKERS}
+    assert set(PATTERNS) == {f"{p}{suffix}" for p in ("fuzzy", *MAKERS) for suffix in ("", "-full")}
 
 
 @pytest.mark.parametrize("name", list(DESIGNS))

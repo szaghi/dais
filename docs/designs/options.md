@@ -8,7 +8,7 @@ each one can be switched from the command line, and `--legacy` rebuilds the firs
 | Switch plate | **integrated** in the top shell | `separate` (screwed, 4x M2x4) | `--plate` |
 | Case screws | **M3 heat-set inserts** + M3 button heads | `self-tap` (M2 self-tapping, printed pilots) | `--fastener` |
 | Bevel angle | **60 deg** from horizontal | any; 45 = the first prototypes | `--bevel` |
-| Skin pattern | none | `fuzzy`, `voronoi`, `facets`, `all` (split designs) | `--pattern` |
+| Skin pattern | none | `fuzzy`, `voronoi`, `facets`, their `-full` versions, `all` (split designs) | `--pattern` |
 
 ```bash
 dais build                                  # defaults -> out/microsam/<design>/
@@ -87,6 +87,34 @@ the same).
 
 One inverted pyramid per ~6 mm tile, its apex at a random point and depth (0.6-1.3 mm), the
 tile edges flush with the wall: the low-poly look of 3D wall panels.
+
+### Full-side versions
+
+`fuzzy-full`, `voronoi-full` and `facets-full` cover the **whole flat side**: from the rim round
+at the seam up to the top bevel line, and out to where the corner rounds begin (0.3 mm clear of
+each). The lower part of that area lies over the rebate, where the top case wall is only 1.8 mm
+thick, so the relief depth is capped there to leave at least 1 mm of wall (`MIN_WALL`): the
+voronoi grooves fit as they are, the facets tiles that cross the rebate are made shallower. The
+tests check the remaining wall for every pattern.
+
+```bash
+dais build --pattern facets-full            # -> out/microsam/split-facets-full/, split-trapezoid-facets-full/
+dais build --pattern all --design split     # all six: band and full versions
+```
+
+<Views :views="[
+  ['split-voronoi/detail', 'voronoi (band)'],
+  ['split-voronoi-full/detail', 'voronoi-full'],
+  ['split-facets/detail', 'facets (band)'],
+  ['split-facets-full/detail', 'facets-full'],
+]" />
+
+<Views photo :views="[
+  ['split-fuzzy-full/hero', 'fuzzy-full: the photo grain covers every wall in both fuzzy versions; the difference is the modifier height'],
+  ['split-voronoi-full/hero', 'voronoi-full'],
+  ['split-facets-full/hero', 'facets-full'],
+  ['split-facets-full/low', 'facets-full, low three-quarter'],
+]" />
 
 ### Printing them
 
