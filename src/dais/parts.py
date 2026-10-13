@@ -7,7 +7,6 @@ from build123d import Axis, Box, Cylinder, Part, Pos, Text, extrude, fillet
 from .layout import Layout
 from .params import (
     BOARD_FIT,
-    BOSS_R,
     BOTTOM_FIT,
     BOTTOM_T,
     FOOT_INSET,
@@ -21,11 +20,9 @@ from .params import (
     PLATE,
     PLATE_RELIEF,
     PLATE_SCREW,
+    PLATE_SCREW_CLEAR,
     PLATE_T,
     POCKET_D,
-    SCREW_CLEAR,
-    SCREW_HEAD_D,
-    SCREW_HEAD_H,
     STOP_T,
     SW_CUT,
 )
@@ -37,14 +34,14 @@ def make_plate(lay: Layout) -> Part:
     # corner reliefs around the one-piece body bosses, which run up past the plate to the roof; cut
     # before the corner fillets (cutting a filleted corner, OCC silently dropped one of the four cuts)
     for x, y in lay.bosses:
-        plate -= lay.key.inverse() * Pos(x, y, 0) * Cylinder(BOSS_R + PLATE_RELIEF, lay.big)
+        plate -= lay.key.inverse() * Pos(x, y, 0) * Cylinder(lay.opt.fast.boss_r + PLATE_RELIEF, lay.big)
     corners = plate.edges().filter_by(Axis.Z)
     if corners:
         plate = fillet(corners, radius=1.0)
     plate -= Box(SW_CUT, SW_CUT, 3 * PLATE_T)
     for sx in (-1, 1):
         for sy in (-1, 1):
-            plate -= Pos(sx * PLATE_SCREW, sy * PLATE_SCREW, 0) * Cylinder(SCREW_CLEAR / 2, 3 * PLATE_T)
+            plate -= Pos(sx * PLATE_SCREW, sy * PLATE_SCREW, 0) * Cylinder(PLATE_SCREW_CLEAR / 2, 3 * PLATE_T)
     return lay.key * plate
 
 
@@ -73,8 +70,8 @@ def make_bottom(lay: Layout, fused: bool = False) -> Part:
     )
 
     for x, y in () if fused else lay.bosses:
-        bottom -= Pos(x, y, -1) * Cylinder(SCREW_CLEAR / 2, BOTTOM_T + 2, align=MIN)
-        bottom -= Pos(x, y, 0) * Cylinder(SCREW_HEAD_D / 2, SCREW_HEAD_H, align=MIN)
+        bottom -= Pos(x, y, -1) * Cylinder(lay.opt.fast.clear_d / 2, BOTTOM_T + 2, align=MIN)
+        bottom -= Pos(x, y, 0) * Cylinder(lay.opt.fast.head_d / 2, lay.opt.fast.head_h, align=MIN)
     for y in feet_y(lay):
         bottom -= Pos(0, y, 0) * Box(foot_len(lay) + 0.4, FOOT_W + 0.4, FOOT_RECESS, align=MIN)
     return bottom
@@ -88,7 +85,7 @@ def feet_y(lay: Layout) -> tuple[float, float]:
 
 def foot_len(lay: Layout) -> float:
     """Strip length: clear of the corner screw heads."""
-    return 2 * (lay.bosses[-1][0] - SCREW_HEAD_D / 2 - 1.5)
+    return 2 * (lay.bosses[-1][0] - lay.opt.fast.head_d / 2 - 1.5)
 
 
 def make_feet(lay: Layout) -> Part:

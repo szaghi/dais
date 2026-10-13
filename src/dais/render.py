@@ -8,18 +8,23 @@ board and USB-C are envelope DUMMIES (plain boxes) for checking fit; they are no
 from __future__ import annotations
 
 import logging
+import multiprocessing
 import re
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from build123d import Align, Box, Compound, ExportSVG, LineType, Pos, Shape
+from build123d import Align, Box, Compound, ExportSVG, GeomType, LineType, Pos, Shape
 
-from .designs import DESIGNS
+from .designs import DESIGNS, Variant
 from .layout import Layout
-from .params import BOTTOM_T, MAX, MIN, POCKET_D, SPLIT_FRONT_Z, SW_BELOW, SW_PINS
+from .params import BOTTOM_T, MAX, MIN, POCKET_D, SPLIT_FRONT_Z, SW_BELOW, SW_PINS, Options
 from .parts import make_coupon, make_plate
 
 log = logging.getLogger(__name__)
+
+# spawn, not fork: a forked worker can inherit a lock held by an OpenCascade or fontconfig thread
+# of the parent (after any OCC work in-process) and deadlock; spawn starts a clean interpreter
+SPAWN = multiprocessing.get_context("spawn")
 
 SW_TOP_H = 6.6  # MX upper housing above the plate
 CAP_LIFT = 5.6  # keycap bottom above the plate top, key up
@@ -72,12 +77,26 @@ def write_svg(
     origin = tuple(e - t for e, t in zip(eye, target, strict=True))
     vis, hid = Compound(children=shapes).project_to_viewport(origin, viewport_up=up)
     if hidden:
-        exp.add_shape(hid, layer="hidden")
-    exp.add_shape(vis, layer="visible")
+        exp.add_shape(_drawable(hid), layer="hidden")
+    exp.add_shape(_drawable(vis), layer="visible")
     path.parent.mkdir(parents=True, exist_ok=True)
     exp.write(str(path))
     _add_background(path)
     log.info("wrote %s", path)
+
+
+def _drawable(edges: Shape) -> Compound:
+    """Edges the SVG exporter can write: svgpathtools asserts start != end on every arc, so a
+    closed ellipse/circle is split into two halves and degenerate edges are dropped."""
+    out = []
+    for e in edges.edges():
+        if e.length <= 1e-4:
+            continue
+        if e.geom_type in (GeomType.ELLIPSE, GeomType.CIRCLE) and (e.position_at(0) - e.position_at(1)).length < 1e-6:
+            out += [e.trim(0.0, 0.5), e.trim(0.5, 1.0)]
+        else:
+            out.append(e)
+    return Compound(children=out)
 
 
 def _add_background(path: Path, pad_frac: float = 0.04) -> None:
@@ -101,15 +120,17 @@ def _add_background(path: Path, pad_frac: float = 0.04) -> None:
     path.write_text(svg, encoding="utf-8")
 
 
-def render_design(board: str, name: str, out: str) -> str:
-    """Write the standard view set of one design, plus its close-ups."""
+def render_design(board: str, name: str, opt: Options, dirname: str, out: str) -> str:
+    """Write the standard view set of one design variant, plus its close-ups."""
     design = DESIGNS[name]
-    lay = design.layout(board)
-    parts = design.build(board)
+    lay = design.layout(board, opt)
+    parts = design.build(board, opt)
     split = "top-case" in parts
     shell = parts["top-case" if split else "body"]
     base = parts["bottom-case" if split else "bottom"]
-    plate, feet = parts["plate"], parts["feet"]
+    plate = parts.get("plate")  # None when the plate is part of the top shell
+    feet = parts["feet"]
+    loose = [lift_one(plate)] if plate is not None else []
     d = dummies(lay)
     switch = [d["sw_top"], d["cap"]]
     case = [shell, base, feet]
@@ -123,15 +144,16 @@ def render_design(board: str, name: str, out: str) -> str:
         "back": [*case, *switch],
         "plan": case,
         "exploded": [lift * lift * s for s in switch]
-        + [lift * lift * shell, lift * plate, d["pcb"], d["usb"], base, Pos(0, 0, -EXPLODE / 2) * feet],
+        + [lift * lift * shell, *loose, d["pcb"], d["usb"], base, Pos(0, 0, -EXPLODE / 2) * feet],
         "section": [
             s & half
             for s in (shell, base, plate, feet, d["pcb"], d["usb"], d["sw_top"], d["sw_bot"], d["sw_pin"], d["cap"])
+            if s is not None
         ],
         "underside": [shell],
         "base-board": [base, d["pcb"], d["usb"]],
     }
-    directory = Path(out) / name
+    directory = Path(out) / dirname
     for view, shapes in scenes.items():
         eye, target, up, hidden = VIEWS[view]
         write_svg(shapes, directory / f"{view}.svg", eye, target, hidden, up)
@@ -145,14 +167,21 @@ def render_design(board: str, name: str, out: str) -> str:
             (300.0, -lay.depth / 2 + 3, zf),
             (0.0, -lay.depth / 2 + 3, zf),
         )
-    return name
+    return dirname
 
 
-def render_all(board: str, out: Path, names: list[str], jobs: int | None = None) -> None:
-    """Render the selected designs in parallel, then the shared parts."""
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
-        for name in pool.map(render_design, [board] * len(names), names, [str(out)] * len(names)):
-            log.info("rendered %s", name)
-    plate = make_plate(DESIGNS["side-cove"].layout(board))
-    write_svg([plate], out / "common" / "plate.svg", (0.0, 0.0, 300.0), (0.0, 0.0, 0.0), up=(0, 1, 0))
+def lift_one(part: Shape) -> Shape:
+    """A loose part between the shell and the base in the exploded view."""
+    return Pos(0, 0, EXPLODE) * part
+
+
+def render_all(board: str, out: Path, todo: list[Variant], jobs: int | None = None) -> None:
+    """Render the design variants in parallel, then the shared parts."""
+    with ProcessPoolExecutor(max_workers=jobs, mp_context=SPAWN) as pool:
+        for job in [pool.submit(render_design, board, n, o, d, str(out)) for n, o, d in todo]:
+            log.info("rendered %s", job.result())
+    separate = [o for _, o, _ in todo if o.plate == "separate"]
+    if separate:
+        plate = make_plate(DESIGNS["side-cove"].layout(board, separate[0]))
+        write_svg([plate], out / "common" / "plate.svg", (0.0, 0.0, 300.0), (0.0, 0.0, 0.0), up=(0, 1, 0))
     write_svg([make_coupon()], out / "common" / "coupon.svg", (0.0, 0.0, 200.0), (31.5, 0.0, 0.0), up=(0, 1, 0))

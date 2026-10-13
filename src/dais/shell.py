@@ -9,10 +9,12 @@ from build123d import (
     Axis,
     Box,
     Cylinder,
+    Face,
     Part,
     Plane,
     Polygon,
     Pos,
+    Rectangle,
     RectangleRounded,
     chamfer,
     extrude,
@@ -21,12 +23,17 @@ from build123d import (
 
 from .layout import Layout
 from .params import (
+    FUNNEL_BOTTOM,
+    MAX,
     MIN,
+    PLATE,
     PLATE_SCREW,
+    PLATE_SCREW_PILOT,
+    PLATE_T,
     PLUG_H,
     PLUG_W,
     R_CORNER,
-    SCREW_PILOT,
+    SW_CUT,
     TILT,
     TOP_EDGE,
     USB_SLOT_FIT,
@@ -67,27 +74,55 @@ def wedge(lay: Layout) -> Part:
     return prism & (Pos(0, 0, -1) * extrude(Polygon(*plan_pts(lay, 0.0), align=None), amount=lay.big))
 
 
+def bevel(part: Part, face: Face, height: float, angle: float) -> Part:
+    """Chamfer the edges of ``face``: ``height`` along the side walls, at ``angle`` from ``face``.
+
+    Steeper than 45 deg means less overhang per layer where the face lies on the print bed.
+    """
+    if abs(angle - 45.0) < 1e-9:
+        return chamfer(face.edges(), length=height)
+    return chamfer(face.edges(), length=height / math.tan(math.radians(angle)), length2=height, reference=face)
+
+
 def outer_shell(lay: Layout) -> Part:
-    """Solid wedge with R_CORNER vertical corners and the chamfered top perimeter."""
+    """Solid wedge with R_CORNER vertical corners and the bevelled top perimeter."""
     shell = wedge(lay)
     shell = fillet(shell.edges().filter_by(Axis.Z), radius=R_CORNER)
-    return chamfer(shell.faces().sort_by(Axis.Z)[-1].edges(), length=TOP_EDGE)
+    return bevel(shell, shell.faces().sort_by(Axis.Z)[-1], TOP_EDGE, lay.opt.bevel)
 
 
-def key_well_and_pilots(lay: Layout) -> Part:
-    """Cutter: the 1U key well with its 45 deg rim chamfer, and the four plate screw pilots."""
+def key_well(lay: Layout) -> Part:
+    """Cutter: the 1U key well with its bevelled rim, and below it either the plate screw pilots
+    (separate plate) or the switch opening of the integrated plate: a 45 deg funnel down to
+    FUNNEL_BOTTOM at the plate top -- printed top down, a flat ring would overhang -- and the
+    SW_CUT cutout through the PLATE_T web."""
     well = Pos(0, 0, -1) * Box(WELL, WELL, WELL_DEPTH + 2, align=MIN)
     well = fillet(well.edges().filter_by(Axis.Z), radius=WELL_R)
     rim = extrude(
-        Pos(0, 0, WELL_DEPTH - WELL_RIM) * RectangleRounded(WELL, WELL, WELL_R), amount=WELL_RIM + 1, taper=-45
+        Pos(0, 0, WELL_DEPTH - WELL_RIM) * RectangleRounded(WELL, WELL, WELL_R),
+        amount=WELL_RIM + 1,
+        taper=-(90.0 - lay.opt.bevel),
     )
-    cut = lay.key * (well + rim)
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            cut += (
-                lay.key * Pos(sx * PLATE_SCREW, sy * PLATE_SCREW, -1) * Cylinder(SCREW_PILOT / 2, WELL_DEPTH, align=MIN)
-            )
-    return cut
+    if lay.opt.plate == "separate":
+        cut = lay.key * (well + rim)
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                cut += (
+                    lay.key
+                    * Pos(sx * PLATE_SCREW, sy * PLATE_SCREW, -1)
+                    * Cylinder(PLATE_SCREW_PILOT / 2, WELL_DEPTH, align=MIN)
+                )
+        return cut
+    # sharp corners: a tapered rounded rectangle grows its corner radius with height and would
+    # pinch a pressed keycap's corners (0.18 mm); sharp ones keep the diagonal clearance
+    funnel = extrude(Rectangle(FUNNEL_BOTTOM, FUNNEL_BOTTOM), amount=WELL_DEPTH + 2, taper=-45)
+    cutout = Box(SW_CUT, SW_CUT, 2 * PLATE_T + 2)
+    return lay.key * ((well & funnel) + rim + cutout)
+
+
+def integrated_plate(lay: Layout) -> Part:
+    """The switch plate as part of the top shell: a PLATE_T web under the top skin (cut by ``key_well``)."""
+    return lay.key * Box(PLATE, PLATE, PLATE_T, align=MAX)
 
 
 def usb_cuts(lay: Layout) -> Part:

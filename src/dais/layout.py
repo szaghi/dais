@@ -15,8 +15,6 @@ from build123d import Box, Location, Part, Pos, Rot
 from .params import (
     BEZEL,
     BOARD_FIT,
-    BOSS_INSET,
-    BOSS_R,
     BOTTOM_T,
     COMP_H,
     MAX,
@@ -36,6 +34,7 @@ from .params import (
     WELL_DEPTH,
     WIRE_GAP,
     Board,
+    Options,
 )
 
 
@@ -55,10 +54,12 @@ class Layout:
     usb_z: float
     board_back: float  # Y of the PCB back edge
     bosses: tuple[tuple[float, float], ...]  # one-piece body bosses
+    opt: Options  # construction choices: plate, fastener, bevel, pattern
 
     @classmethod
-    def for_board(cls, board: Board, front_extra: float = 0.0) -> Layout:
+    def for_board(cls, board: Board, front_extra: float = 0.0, opt: Options | None = None) -> Layout:
         """Size the case around ``board``; ``front_extra`` > 0 widens the front (trapezoidal plan)."""
+        opt = opt or Options()
         t = math.radians(TILT)
         width = WELL + 2 * BEZEL
         setback = max(0.0, board.usb_overhang - USB_WALL_LEFT)
@@ -73,7 +74,7 @@ class Layout:
         )
         key_z = board_top + COMP_H + WIRE_GAP + drop
         top_c = key_z + WELL_DEPTH / math.cos(t)  # top face height above the key centre
-        bx, by = in_x / 2 - BOSS_INSET, in_y / 2 - BOSS_INSET
+        bx, by = in_x / 2 - opt.fast.boss_inset, in_y / 2 - opt.fast.boss_inset
         lay = cls(
             board=board,
             width=width,
@@ -87,8 +88,9 @@ class Layout:
             usb_z=board_top + board.usb_h / 2,
             board_back=in_y / 2 - setback,
             bosses=tuple((sx * bx, sy * by) for sx in (-1, 1) for sy in (-1, 1)),
+            opt=opt,
         )
-        if (board.width + BOARD_FIT) / 2 + 1.0 > bx - BOSS_R:
+        if (board.width + BOARD_FIT) / 2 + 1.0 > bx - opt.fast.boss_r:
             raise ValueError("board too wide for the bosses: increase BEZEL")
         if PLATE / 2 * math.cos(t) > in_y / 2 or PLATE / 2 > in_x / 2:
             raise ValueError("plate does not fit the cavity")

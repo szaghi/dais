@@ -9,12 +9,10 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from build123d import Axis, Box, Cylinder, Part, Pos, Rot, Sphere, Torus, chamfer
+from build123d import Axis, Box, Cylinder, Part, Pos, Rot, Sphere, Torus
 
 from .layout import Layout, above_floor, below_roof
 from .params import (
-    BOSS_H,
-    BOSS_R,
     BOTTOM_EDGE,
     BOTTOM_T,
     COVE_BALL,
@@ -25,13 +23,12 @@ from .params import (
     PLUG_H,
     PLUG_W,
     R_CORNER,
-    SCREW_PILOT,
     TILT,
     USB_SLOT_FIT,
     USB_WALL_LEFT,
     WALL,
 )
-from .shell import key_well_and_pilots, outer_shell
+from .shell import bevel, integrated_plate, key_well, outer_shell
 
 Cove = Literal["side", "wrap"]
 
@@ -40,20 +37,24 @@ def make_body(lay: Layout, cove: Cove) -> Part:
     """Wedge shell: top skin with key well, coves, bosses up to the roof, USB-C slot and plug recess."""
     b = lay.board
     body = outer_shell(lay)
-    body = chamfer(body.faces().sort_by(Axis.Z)[0].edges(), length=BOTTOM_EDGE)
+    body = bevel(body, body.faces().sort_by(Axis.Z)[0], BOTTOM_EDGE, lay.opt.bevel)
 
     # cavity: vertical walls, roof = plate-top plane of the key frame
     walls = Pos(0, 0, -1) * Box(lay.in_x, lay.in_y, lay.h_back + 2, align=MIN)
     body -= walls & below_roof(lay)
-    body -= key_well_and_pilots(lay)
+    if lay.opt.plate == "integrated":
+        body += integrated_plate(lay)
+    body -= key_well(lay)
     body -= wrap_cove(lay) if cove == "wrap" else side_coves(lay)
 
     # bosses for the bottom plate, each tied into its corner by a web; columns run up to the roof
-    # (printed top down, a boss ending below the roof would start in mid-air)
+    # (printed top down, a boss ending below the roof would start in mid-air); the hole is a
+    # self-tapping pilot or a heat-set insert hole, entered from below
+    fast = lay.opt.fast
     column = above_floor(lay) & below_roof(lay, lift=0.5)
     for x, y in lay.bosses:
-        body += (Pos(x, y, -1) * Cylinder(BOSS_R, lay.big, align=MIN) + _corner_web(lay, x, y)) & column
-        body -= Pos(x, y, BOTTOM_T - 1) * Cylinder(SCREW_PILOT / 2, BOSS_H, align=MIN)
+        body += (Pos(x, y, -1) * Cylinder(fast.boss_r, lay.big, align=MIN) + _corner_web(lay, x, y)) & column
+        body -= Pos(x, y, BOTTOM_T - 1) * Cylinder(fast.hole_d / 2, fast.body_hole, align=MIN)
 
     # USB-C: receptacle slot, overmold recess open through the bottom edge
     back = lay.in_y / 2

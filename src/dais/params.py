@@ -7,6 +7,7 @@ placeholders waiting for calipers or the switch-fit coupon.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from build123d import Align
 
@@ -40,10 +41,10 @@ BEZEL = 12.0  # top face beyond the key well, left/right (front/back grow with t
 WELL = 19.6  # key well opening: 1U cap (18.0-18.4) + ~0.6 per side
 WELL_DEPTH = 4.0  # top face above the plate top: the cap sits sunk in the well
 WELL_R = 1.0  # well corner radius
-WELL_RIM = 0.5  # 45 deg chamfer on the well rim
-TOP_EDGE = 0.8  # 45 deg chamfer, top perimeter (on the bed when printing)
+WELL_RIM = 0.5  # chamfer on the well rim: height (the run follows Options.bevel)
+TOP_EDGE = 0.8  # chamfer, top perimeter (on the bed when printing): height
 R_CORNER = 3.0  # vertical body corners
-BOTTOM_EDGE = 1.2  # 45 deg chamfer, bottom perimeter
+BOTTOM_EDGE = 1.2  # chamfer, bottom perimeter (on the bed for the split bottom case): height
 # cove: a ball cutter plunged near the front, drifting outward until it runs out at the back --
 # a teardrop with a round head at the front and a long tapering tail, parallel to the top
 COVE_BOTTOM = 5.0  # lower edge of the cove on the front face, above the case bottom
@@ -79,15 +80,13 @@ PLUG_H = 7.5
 USB_SLOT_FIT = 0.6  # clearance around the receptacle in the wall slot
 USB_WALL_LEFT = 0.6  # wall left where the receptacle face sits
 
+# --- Integrated switch plate ---------------------------------------------------------
+FUNNEL_BOTTOM = 15.8  # well narrows at 45 deg to this at the plate top (MX top housing 15.6)
+PLATE_SCREW_PILOT = 1.7  # separate plate only: M2 self-tapping pilots in the top skin
+PLATE_SCREW_CLEAR = 2.4  # separate plate only: M2 clearance holes in the plate
+
 # --- Shell and fasteners -------------------------------------------------------------
 WALL = 3.0
-BOSS_R = 3.0
-BOSS_H = 8.0  # pilot depth into the one-piece body bosses (the bosses run up to the roof)
-BOSS_INSET = 3.2  # boss centre from the inner wall: keeps the counterbores inside the bottom plate
-SCREW_PILOT = 1.7  # M2 self-tapping pilot
-SCREW_CLEAR = 2.4
-SCREW_HEAD_D = 4.2
-SCREW_HEAD_H = 1.8
 
 # --- Split designs: bottom case inserted into the top case -------------------------
 SPLIT_STEP = 1.0  # bottom case outer face inside the top case outer face (the shadow step)
@@ -98,10 +97,7 @@ LIP_T = 1.2  # bottom case lip thickness (slides into the rebate)
 LIP_FIT = 0.15  # clearance per side, lip in the rebate
 LIP_TOP_GAP = 0.2  # lip top below the rebate top
 SPLIT_BOSS_INSET = 2.5  # screw axis from the inner wall (bottom-case columns fuse into the wall)
-TOP_BOSS_R = 2.5  # top-case screw column
 SPLIT_FRONT_Z = 2.0  # top case lower edge on the front face, above the case bottom (seam rises TILT)
-SPLIT_SCREW_L = 6.0  # all four M2 screws the same length: deeper counterbores where the seam is higher
-SPLIT_SCREW_ENGAGE = 4.0  # thread engagement in the top-case column
 TRAP_FRONT_EXTRA = 10.0  # trapezoid plan: front this much wider than the back (sides ~6.4 deg)
 
 # --- Feet ------------------------------------------------------------------------------
@@ -109,3 +105,70 @@ FOOT_W = 6.0
 FOOT_T = 1.4  # TPU strip thickness
 FOOT_RECESS = 0.6  # recess depth: strips stand 0.8 mm proud
 FOOT_INSET = 5.0  # strip centre-line distance from the bottom plate front/back edge
+
+
+# --- Skin patterns (split top case sides) ------------------------------------------------
+PATTERN_DEPTH = 0.5  # relief depth into the 3 mm wall
+PATTERN_RAMP = 56.0  # lower groove ends ramp out at this angle from the wall: >= 45 + TILT + margin, as printed
+PATTERN_MARGIN = 1.2  # clear of the corner rounds, along each face
+PATTERN_BOTTOM = 0.8  # band starts this far above the rebate top (full wall thickness behind it)
+PATTERN_TOP = 1.0  # band stops this far below the top bevel
+FLUTE_R = 1.0  # flutes: cutter radius (0.45 deep -> ~1.7 mm wide)
+FLUTE_PITCH = 2.6
+KNURL_PITCH = 2.4  # knurl: 90 deg V-grooves at +-45 deg
+HEX_FLATS = 3.0  # hex scales: across flats at the surface; walls drafted 45 deg
+HEX_GAP = 0.7
+RIPPLE_R = 4.0  # ripple: wide shallow grooves swept along a sine
+RIPPLE_PITCH = 3.2
+RIPPLE_AMP = 0.5
+RIPPLE_WAVE = 14.0
+
+
+# --- Fasteners -------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Fastener:
+    """How the case closes: screw, anchor hole and the bosses around it."""
+
+    label: str
+    hole_d: float  # anchor hole: self-tapping pilot, or heat-set insert hole
+    hole_depth: float  # split top-case column: hole depth above the column bottom
+    body_hole: float  # one-piece body boss: hole length from 1 mm below the boss bottom
+    tip: float  # split: screw tip above the top-case column bottom
+    split_screw_l: float  # split: all four screws the same length (deeper counterbores at the back)
+    clear_d: float  # clearance hole through the bottom plate / bottom case
+    head_d: float  # counterbore diameter
+    head_h: float  # counterbore depth (head height + margin)
+    boss_r: float  # one-piece body bosses and split bottom-case columns
+    top_boss_r: float  # split top-case columns
+    boss_inset: float  # one-piece: boss axis from the inner wall (keeps the counterbore in the plate)
+
+
+FASTENERS = {
+    # M2 self-tapping screws straight into printed pilots (split M2x6, one-piece M2x8)
+    "self-tap": Fastener("M2 self-tapping", 1.7, 3.6, 8.0, 3.2, 6.0, 2.4, 4.2, 1.8, 3.0, 2.5, 3.2),
+    # M3 heat-set inserts (hole 4.0 x 5.7, Ruthex/CNC Kitchen style) + M3 button-head ISO 7380
+    # screws (head 5.7 x 1.65): split M3x8 (5 mm in the insert), one-piece M3x6 (4.3 mm)
+    "insert": Fastener("M3 heat-set insert", 4.0, 6.2, 7.2, 5.0, 8.0, 3.4, 6.0, 1.8, 4.0, 4.0, 4.2),
+}
+
+
+# --- Build options -----------------------------------------------------------------------
+Pattern = Literal["flutes", "knurl", "hex", "ripple"]
+PATTERNS: tuple[str, ...] = ("flutes", "knurl", "hex", "ripple")
+
+
+@dataclass(frozen=True)
+class Options:
+    """Construction choices shared by every design."""
+
+    plate: Literal["integrated", "separate"] = "integrated"  # switch plate part of the top shell, or screwed
+    fastener: Literal["insert", "self-tap"] = "insert"
+    bevel: float = 60.0  # chamfer angle from horizontal (the bed): 45 = classic; steeper prints cleaner
+    pattern: Pattern | None = None  # skin pattern on the split top case sides
+
+    @property
+    def fast(self) -> Fastener:
+        return FASTENERS[self.fastener]
+
+
+LEGACY = Options(plate="separate", fastener="self-tap", bevel=45.0)  # the first prototypes

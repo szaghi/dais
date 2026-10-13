@@ -22,7 +22,7 @@ import numpy as np
 from build123d import Part, export_stl
 from PIL import Image
 
-from .designs import DESIGNS
+from .designs import DESIGNS, Variant
 from .display import make_keycap, make_switch_top
 from .params import SPLIT_FRONT_Z
 from .render import dummies
@@ -171,7 +171,7 @@ def composite(png: Path, out: Path) -> None:
 
 def photo(
     board: str,
-    names: list[str],
+    todo: list[Variant],
     out: Path,
     work: Path,
     *,
@@ -183,28 +183,28 @@ def photo(
     blender: str | None = None,
     only: list[str] | None = None,
 ) -> None:
-    """Render ``names`` designs to ``out/<design>/<shot>.webp``."""
+    """Render each (design, options, output name) of ``todo`` to ``out/<output name>/<shot>.webp``."""
     exe = find_blender(blender)
     script = Path(__file__).with_name("blender_scene.py")
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": "", "HIP_VISIBLE_DEVICES": ""}
-    for name in names:
+    for name, opt, dirname in todo:
         design = DESIGNS[name]
-        lay = design.layout(board)
-        parts = design.build(board)
+        lay = design.layout(board, opt)
+        parts = design.build(board, opt)
         split = "top-case" in parts
         d = dummies(lay)
         solids: dict[str, Part] = {
             "shell": parts["top-case" if split else "body"],
             "base": parts["bottom-case" if split else "bottom"],
-            "plate": parts["plate"],
+            **({"plate": parts["plate"]} if "plate" in parts else {}),  # absent when integrated
             "feet": parts["feet"],
             "switch": make_switch_top(lay),
             "keycap": make_keycap(lay),
             "pcb": d["pcb"],
             "usb": d["usb"],
         }
-        mesh_dir, raw_dir = work / name / "mesh", work / name / "raw"
-        for p in (mesh_dir, raw_dir, out / name):
+        mesh_dir, raw_dir = work / dirname / "mesh", work / dirname / "raw"
+        for p in (mesh_dir, raw_dir, out / dirname):
             p.mkdir(parents=True, exist_ok=True)
         meshes = []
         for key, solid in solids.items():
@@ -212,13 +212,13 @@ def photo(
             export_stl(solid, str(path), tolerance=0.005, angular_tolerance=0.05)
             meshes.append({"name": key, "file": str(path), "material": MATERIAL[key]})
         todo = [s for s in shots(split) if not only or s.name in only]
-        scene = work / name / "scene.json"
+        scene = work / dirname / "scene.json"
         shot_list = [
             {
                 "name": s.name,
                 "eye": s.eye,
                 "target": s.target,
-                "objects": list(s.objects),
+                "objects": [o for o in s.objects if o in solids],
                 "offsets": s.offsets,
                 "lens": s.lens,
                 "margin": s.margin,
@@ -238,7 +238,7 @@ def photo(
         scene.write_text(json.dumps(cfg, indent=1))
         log.info(
             "%s: %d shots, %d threads, %d samples, %dx%d, RAM cap %s",
-            name,
+            dirname,
             len(todo),
             threads,
             samples,
@@ -251,5 +251,5 @@ def photo(
             if spec.exists():
                 stitch(spec, raw_dir / f"{s.name}.png")
                 spec.unlink()
-            composite(raw_dir / f"{s.name}.png", out / name / f"{s.name}.webp")
-            log.info("wrote %s", out / name / f"{s.name}.webp")
+            composite(raw_dir / f"{s.name}.png", out / dirname / f"{s.name}.webp")
+            log.info("wrote %s", out / dirname / f"{s.name}.webp")

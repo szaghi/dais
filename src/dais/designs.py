@@ -7,13 +7,13 @@ Each design builds a complete, self-contained part set in assembly position; the
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from build123d import Part
 
 from .layout import Layout
 from .one_piece import Cove, make_body
-from .params import BOARDS, TRAP_FRONT_EXTRA
+from .params import BOARDS, TRAP_FRONT_EXTRA, Options
 from .parts import make_bottom, make_feet, make_plate
 from .split import make_bottom_case, make_top_case
 
@@ -28,36 +28,41 @@ class Design:
     front_extra: float  # 0: rectangular plan; > 0: trapezoid, front wider than the back
     parts: Callable[[Layout], dict[str, Part]]
 
-    def layout(self, board: str) -> Layout:
-        """Layout of this design for ``board``."""
-        return Layout.for_board(BOARDS[board], front_extra=self.front_extra)
+    def layout(self, board: str, opt: Options | None = None) -> Layout:
+        """Layout of this design for ``board`` built with ``opt`` (default: ``Options()``)."""
+        return Layout.for_board(BOARDS[board], front_extra=self.front_extra, opt=opt)
 
-    def build(self, board: str) -> dict[str, Part]:
+    @property
+    def split(self) -> bool:
+        """Top case + bottom case (pattern-capable), as opposed to a one-piece body."""
+        return self.parts is _split
+
+    def build(self, board: str, opt: Options | None = None) -> dict[str, Part]:
         """All printed parts in assembly position, checked for validity and clashes."""
-        parts = self.parts(self.layout(board))
+        parts = self.parts(self.layout(board, opt))
         check(parts)
         return parts
 
 
 def _one_piece(cove: Cove) -> Callable[[Layout], dict[str, Part]]:
     def parts(lay: Layout) -> dict[str, Part]:
-        return {
-            "body": make_body(lay, cove),
-            "bottom": make_bottom(lay),
-            "plate": make_plate(lay),
-            "feet": make_feet(lay),
-        }
+        parts = {"body": make_body(lay, cove), "bottom": make_bottom(lay)}
+        return _with_plate_and_feet(parts, lay)
 
     return parts
 
 
 def _split(lay: Layout) -> dict[str, Part]:
-    return {
-        "top-case": make_top_case(lay),
-        "bottom-case": make_bottom_case(lay),
-        "plate": make_plate(lay),
-        "feet": make_feet(lay),
-    }
+    parts = {"top-case": make_top_case(lay), "bottom-case": make_bottom_case(lay)}
+    return _with_plate_and_feet(parts, lay)
+
+
+def _with_plate_and_feet(parts: dict[str, Part], lay: Layout) -> dict[str, Part]:
+    """Add the shared parts: the switch plate only when it is not integrated in the top shell."""
+    if lay.opt.plate == "separate":
+        parts["plate"] = make_plate(lay)
+    parts["feet"] = make_feet(lay)
+    return parts
 
 
 DESIGNS: dict[str, Design] = {
@@ -114,3 +119,20 @@ def check(parts: dict[str, Part]) -> None:
             clash = (parts[a] & parts[c]).volume
             if clash > 1e-3:
                 raise RuntimeError(f"{a} and {c} intersect: {clash:.3f} mm^3")
+
+
+Variant = tuple[str, Options, str]  # design name, options, output name
+
+
+def variants(names: list[str], opt: Options, patterns: list[str | None]) -> list[Variant]:
+    """Every requested design x pattern; patterns apply to the split designs only.
+
+    The output name is the design name, suffixed with the pattern when there is one.
+    """
+    out: list[Variant] = []
+    for pattern in patterns:
+        for name in names:
+            if pattern and not DESIGNS[name].split:
+                continue
+            out.append((name, replace(opt, pattern=pattern), f"{name}-{pattern}" if pattern else name))
+    return out
