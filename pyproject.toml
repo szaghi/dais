@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dais"
+version = "0.0.0"
+description = "Parametric build123d case for a one-key MX macropad (RP2040, QMK)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["build123d>=0.13", "pillow>=10"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.15"]
+
+[project.scripts]
+dais = "dais.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=dais --cov-report=term-missing"
+
+[tool.coverage.run]
+# runs inside Blender's own Python, not under pytest
+omit = ["*/blender_scene.py"]

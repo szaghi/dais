@@ -1,0 +1,16 @@
+# python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# generated case parts (dais build)
+out/
+
+# docs
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
