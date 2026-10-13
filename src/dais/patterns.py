@@ -11,6 +11,7 @@ print tilt), and the band's lower edge ramps out at PATTERN_RAMP. The back face 
 
 from __future__ import annotations
 
+import itertools
 import math
 import random
 
@@ -58,7 +59,7 @@ from .params import (
     VORONOI_GROOVE,
     Pattern,
 )
-from .shell import outer_shell, outline
+from .shell import outer_shell, outline, plan_pts
 
 BIG = 400.0
 ABOVE = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -328,7 +329,218 @@ def _rebate_depth_ratio(
     return worst
 
 
+class _Seg:
+    """One flat piece of the unrolled front strip (a face, or a chord of a front corner round):
+    local frame x along the strip (travel direction), y = world up, z = outward normal."""
+
+    def __init__(self, lay: Layout, p0: Pt, p1: Pt, u0: float) -> None:
+        t = math.radians(TILT)
+        dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+        self.L = math.hypot(dx, dy)
+        self.t = Vector(dx / self.L, dy / self.L, 0)
+        self.n = Vector(self.t.Y, -self.t.X, 0)  # outward: right of travel on a CCW outline
+        self.p0 = Vector(p0[0], p0[1], 0)
+        self.u0 = u0
+        self.loc = Location(Plane(origin=self.p0, x_dir=self.t, z_dir=self.n))
+        self._P0 = Vector(0, -lay.depth / 2, SPLIT_FRONT_Z)
+        self._nrm = Vector(0, -math.sin(t), math.cos(t))
+
+    def y_at(self, x: float, h: float) -> float:
+        p = self.p0 + self.t * x
+        return (h - (p - self._P0).dot(self._nrm)) / self._nrm.Z
+
+    def h_at(self, x: float, y: float) -> float:
+        return (self.p0 + self.t * x - self._P0).dot(self._nrm) + y * self._nrm.Z
+
+    def local(self, u: float, s: float, h0: float, z: float = 0.0) -> Vector:
+        """Unrolled strip point (u along, s above the band's lower edge, z out) -> local frame."""
+        x = u - self.u0
+        return Vector(x, self.y_at(x, h0) + s, z)
+
+    def to_local(self, v: Vector) -> Vector:
+        """A world direction in this segment's local frame."""
+        return Vector(v.dot(self.t), v.Z, v.dot(self.n))
+
+
+class _Strip:
+    """Front strip unrolled: left side, front-left corner round, front, front-right round, right
+    side. The rounds are split into CORNER_CHORDS flat chords (R3: 0.03 mm off the true arc)."""
+
+    CORNER_CHORDS = 6
+
+    def __init__(self, lay: Layout) -> None:
+        t = math.radians(TILT)
+        top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)
+        self.h0, self.h1 = RIM_R + FULL_MARGIN, top - TOP_EDGE - FULL_MARGIN
+        self.H = (self.h1 - self.h0) / math.cos(t)
+        v0, v1, v2, v3 = plan_pts(lay, 0.0)  # CCW: front-left, front-right, back-right, back-left
+        path = [self._tangent_out(v2, v3, v0)]  # left side starts at the back-left round
+        path += self._round(v3, v0, v1) + self._round(v0, v1, v2)
+        path.append(self._tangent_in(v1, v2, v3))  # right side ends at the back-right round
+        self.segs, u = [], 0.0
+        for a, b in itertools.pairwise(path):
+            seg = _Seg(lay, a, b, u)
+            self.segs.append(seg)
+            u += seg.L
+        self.ua, self.ub = FULL_MARGIN, u - FULL_MARGIN
+
+    @staticmethod
+    def _fillet(prev: Pt, v: Pt, nxt: Pt) -> tuple[Pt, Pt, Pt, float, float]:
+        """R_CORNER round at ``v``: tangent points, centre and start/end angles."""
+        a = Vector(v[0] - prev[0], v[1] - prev[1], 0).normalized()
+        b = Vector(nxt[0] - v[0], nxt[1] - v[1], 0).normalized()
+        theta = math.acos(max(-1.0, min(1.0, (-a).dot(b))))  # interior angle
+        d = R_CORNER / math.tan(theta / 2)
+        t1, t2 = (v[0] - a.X * d, v[1] - a.Y * d), (v[0] + b.X * d, v[1] + b.Y * d)
+        inward = (b - a).normalized()
+        c = (v[0] + inward.X * R_CORNER / math.sin(theta / 2), v[1] + inward.Y * R_CORNER / math.sin(theta / 2))
+        f1, f2 = math.atan2(t1[1] - c[1], t1[0] - c[0]), math.atan2(t2[1] - c[1], t2[0] - c[0])
+        if f2 < f1:
+            f2 += 2 * math.pi  # CCW outline: the round turns counter-clockwise
+        return t1, t2, c, f1, f2
+
+    def _round(self, prev: Pt, v: Pt, nxt: Pt) -> list[Pt]:
+        _, _, c, f1, f2 = self._fillet(prev, v, nxt)
+        n = self.CORNER_CHORDS
+        return [
+            (c[0] + R_CORNER * math.cos(f1 + (f2 - f1) * i / n), c[1] + R_CORNER * math.sin(f1 + (f2 - f1) * i / n))
+            for i in range(n + 1)
+        ]
+
+    def _tangent_out(self, prev: Pt, v: Pt, nxt: Pt) -> Pt:
+        return self._fillet(prev, v, nxt)[1]
+
+    def _tangent_in(self, prev: Pt, v: Pt, nxt: Pt) -> Pt:
+        return self._fillet(prev, v, nxt)[0]
+
+    def clip(self, i: int) -> Part:
+        """Segment ``i``'s share of the band: ramped lower edge, upper edge, and its two ends --
+        the bisector planes with its neighbours (pieces meet exactly), or the strip ends."""
+        seg = self.segs[i]
+        c0, c1 = seg.y_at(0.0, self.h0), seg.y_at(0.0, self.h1)
+        k0, k1 = seg.y_at(1.0, self.h0) - c0, seg.y_at(1.0, self.h1) - c1
+        a = math.radians(PATTERN_RAMP)
+        low_n = Vector(-k0 * math.cos(a), math.cos(a), math.sin(a)).normalized()
+        region = Location(Plane(origin=(0, c0, 0), z_dir=low_n)) * Box(BIG, BIG, BIG, align=ABOVE)
+        region &= Location(Plane(origin=(0, c1, 0), z_dir=Vector(-k1, 1, 0).normalized())) * Box(
+            BIG, BIG, BIG, align=BELOW
+        )
+        if i == 0:
+            start = Location(Plane(origin=(self.ua - seg.u0, 0, 0), z_dir=(1, 0, 0)))
+        else:
+            start = Location(Plane(origin=(0, 0, 0), z_dir=seg.to_local((self.segs[i - 1].t + seg.t).normalized())))
+        region &= start * Box(BIG, BIG, BIG, align=ABOVE)
+        if i == len(self.segs) - 1:
+            end = Location(Plane(origin=(self.ub - seg.u0, 0, 0), z_dir=(1, 0, 0)))
+        else:
+            end = Location(Plane(origin=(seg.L, 0, 0), z_dir=seg.to_local((seg.t + self.segs[i + 1].t).normalized())))
+        return region & (end * Box(BIG, BIG, BIG, align=BELOW))
+
+    def near(self, i: int, umin: float, umax: float, pad: float = 1.0) -> bool:
+        seg = self.segs[i]
+        return umax >= seg.u0 - pad and umin <= seg.u0 + seg.L + pad
+
+
+def _voronoi_full(lay: Layout) -> Part:
+    """``voronoi`` over the whole front strip, continuous round the front corners."""
+    strip = _Strip(lay)
+    w, h = strip.ub - strip.ua, strip.H
+    rng = random.Random(PATTERN_SEED * 1000 + round(w))
+    pts: list[Pt] = []
+    for _ in range(15000):
+        q = (rng.uniform(0, w), rng.uniform(0, h))
+        if all(math.dist(q, o) > 0.8 * VORONOI_CELL for o in pts):
+            pts.append(q)
+    mirrored = pts + [(-x, y) for x, y in pts] + [(2 * w - x, y) for x, y in pts]
+    mirrored += [(x, -y) for x, y in pts] + [(x, 2 * h - y) for x, y in pts]
+    vor = Voronoi(np.array(mirrored))
+    run = (VORONOI_DEPTH + 0.02) * math.tan(math.radians(VORONOI_DRAFT))
+    cells = []
+    for i, (px, py) in enumerate(pts):
+        region = vor.regions[vor.point_region[i]]
+        if -1 in region or not region:
+            continue
+        cell = [tuple(vor.vertices[v]) for v in region]
+        cell.sort(key=lambda q: math.atan2(q[1] - py, q[0] - px))
+        top = _inset([(x + strip.ua, y) for x, y in cell], VORONOI_GROOVE / 2)
+        if top is None or len(top := _dedupe(top)) < 3:
+            continue
+        foot = _miter(top, run)
+        cells.append((top, foot, min(q[0] for q in foot), max(q[0] for q in foot)))
+    cut = Part()
+    for i, seg in enumerate(strip.segs):
+        pads = []
+        for top, foot, umin, umax in cells:
+            if not strip.near(i, umin, umax):
+                continue
+            a = Plane.XY.offset(0.01) * Polygon(
+                *[(v.X, v.Y) for v in (seg.local(u, y, strip.h0) for u, y in top)], align=None
+            )
+            b = Plane.XY.offset(-VORONOI_DEPTH - 0.01) * Polygon(
+                *[(v.X, v.Y) for v in (seg.local(u, y, strip.h0) for u, y in foot)], align=None
+            )
+            pads.append(loft([a, b]))
+        yc = seg.y_at(seg.L / 2, strip.h0) + strip.H / 2
+        piece = Pos(seg.L / 2, yc, (1 - VORONOI_DEPTH) / 2) * Box(seg.L + 4, BIG, 1 + VORONOI_DEPTH)
+        if pads:
+            piece -= Part(Compound(pads).wrapped)
+        cut += seg.loc * (piece & strip.clip(i))
+    return cut
+
+
+def _facets_full(lay: Layout) -> Part:
+    """``facets`` over the whole front strip, tiles continuing round the front corners."""
+    strip = _Strip(lay)
+    w = strip.ub - strip.ua
+    nx, ny = max(1, round(w / FACET_TILE)), max(1, round(strip.H / FACET_TILE))
+    tw, th = w / nx, strip.H / ny
+    rng = random.Random(PATTERN_SEED * 1000 + round(w) + 1)
+    pieces: list[list[Part]] = [[] for _ in strip.segs]
+
+    def facets_in(seg: _Seg, corners: list[tuple[float, float]], apex: tuple[float, float, float]) -> tuple:
+        cs = [seg.local(u, y, strip.h0) for u, y in corners]
+        ap = seg.local(apex[0], apex[1], strip.h0, apex[2])
+        normals = []
+        for a, b in zip(cs, cs[1:] + cs[:1], strict=True):
+            n = (b - a).cross(ap - a).normalized()
+            normals.append((a, n if n.Z > 0 else -n))
+        return cs, normals
+
+    for j in range(ny):
+        for i in range(nx):
+            u, y = strip.ua + i * tw, j * th
+            corners = [(u, y), (u + tw, y), (u + tw, y + th), (u, y + th)]
+            segs = [k for k in range(len(strip.segs)) if strip.near(k, u, u + tw, pad=0.0)]
+            depth = rng.uniform(*FACET_DEPTH)
+            for attempt in range(60):
+                apex = (u + rng.uniform(0.25, 0.75) * tw, y + rng.uniform(0.35, 0.85) * th, -depth)
+                if all(n.Y <= PATTERN_MAX_UP for k in segs for _, n in facets_in(strip.segs[k], corners, apex)[1]):
+                    break
+                if attempt % 10 == 9:
+                    depth *= 0.85
+            else:
+                continue
+            ratio = max(
+                _rebate_depth_ratio(strip.segs[k], *facets_in(strip.segs[k], corners, apex), depth) for k in segs
+            )
+            if ratio > 0 and depth * ratio > RIM_WALL - MIN_WALL:
+                depth = (RIM_WALL - MIN_WALL) / ratio
+                apex = (apex[0], apex[1], -depth)
+            for k in segs:
+                cs, normals = facets_in(strip.segs[k], corners, apex)
+                prism = Pos(0, 0, -2) * extrude(Polygon(*[(c.X, c.Y) for c in cs], align=None), amount=3)
+                for a, n in normals:
+                    prism &= Location(Plane(origin=a, z_dir=n)) * Box(BIG, BIG, BIG, align=ABOVE)
+                pieces[k].append(prism)
+    cut = Part()
+    for k, seg in enumerate(strip.segs):
+        if pieces[k]:
+            cut += seg.loc * (Part(Compound(pieces[k]).wrapped) & strip.clip(k))
+    return cut
+
+
 MAKERS = {"voronoi": _voronoi, "facets": _facets}
+FULL_MAKERS = {"voronoi": _voronoi_full, "facets": _facets_full}
 
 
 def is_full(pattern: Pattern) -> bool:
@@ -341,8 +553,10 @@ def skin_pattern(lay: Layout, pattern: Pattern) -> Part | None:
     base = pattern.removesuffix("-full")
     if base not in MAKERS:
         return None
+    if is_full(pattern):  # one continuous strip: front, sides and the front corner rounds
+        return FULL_MAKERS[base](lay)
     cut = Part()
-    for face in _faces(lay, is_full(pattern)):
+    for face in _faces(lay):
         cut += face.loc * (MAKERS[base](face) & face.clip())
     return cut
 

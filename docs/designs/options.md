@@ -90,9 +90,12 @@ tile edges flush with the wall: the low-poly look of 3D wall panels.
 
 ### Full-side versions
 
-`fuzzy-full`, `voronoi-full` and `facets-full` cover the **whole flat side**: from the rim round
-at the seam up to the top bevel line, and out to where the corner rounds begin (0.3 mm clear of
-each). The lower part of that area lies over the rebate, where the top case wall is only 1.8 mm
+`fuzzy-full`, `voronoi-full` and `facets-full` cover the **whole front and sides as one
+continuous skin**: from the rim round at the seam up to the top bevel line, and **round the two
+front corners** -- the texture is generated on the unrolled strip (left side, front-left round,
+front, front-right round, right side) and wrapped back onto it, each R3 corner as six flat chords
+(0.03 mm off the true arc), so cells and tiles flow across the corners without a break. The back
+corners and the back stay plain (USB-C). The lower part of that area lies over the rebate, where the top case wall is only 1.8 mm
 thick, so the relief depth is capped there to leave at least 1 mm of wall (`MIN_WALL`): the
 voronoi grooves fit as they are, the facets tiles that cross the rebate are made shallower. The
 tests check the remaining wall for every pattern.
