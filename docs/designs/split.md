@@ -41,6 +41,21 @@ The switch plate is part of the top case: the key well narrows in a 45 deg funne
 1.5 mm web that the switch clips into ([integrated plate](./options#integrated-switch-plate)).
 Optional [skin patterns](./options#skin-patterns) decorate the front and the sides.
 
+## Skin patterns
+
+The split top case takes optional textures on its front and sides -- as a band, or over the
+whole flat side (`-full`). Build them with `dais build --pattern <name>`; details and printing
+notes in [Options and patterns](./options#skin-patterns).
+
+<Views photo :views="[
+  ['split-voronoi/hero', 'voronoi', './options#voronoi-leather-cells'],
+  ['split-voronoi-full/hero', 'voronoi-full', './options#full-side-versions'],
+  ['split-facets/hero', 'facets', './options#facets-faceted-panel'],
+  ['split-facets-full/hero', 'facets-full', './options#full-side-versions'],
+  ['split-fuzzy/hero', 'fuzzy (slicer modifier)', './options#fuzzy-fuzzy-skin-done-by-the-slicer'],
+  ['split-fuzzy-full/hero', 'fuzzy-full (slicer modifier)', './options#full-side-versions'],
+]" />
+
 ## USB-C and floor
 
 The seam crosses the receptacle at the back, so the receptacle slot and a 12.5 mm plug notch
