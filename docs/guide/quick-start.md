@@ -16,10 +16,10 @@ FreeCAD / Fusion / Onshape).
 
 ```text
 out/microsam/
-├── side-cove/        {stl,step}/  body  bottom  plate  feet
-├── wrap-cove/        {stl,step}/  body  bottom  plate  feet
-├── split/            {stl,step}/  top-case  bottom-case  plate  feet
-├── split-trapezoid/  {stl,step}/  top-case  bottom-case  plate  feet
+├── side-cove/        {stl,step}/  body  bottom  feet          + options.json
+├── wrap-cove/        {stl,step}/  body  bottom  feet
+├── split/            {stl,step}/  top-case  bottom-case  feet
+├── split-trapezoid/  {stl,step}/  top-case  bottom-case  feet
 └── coupon/           {stl,step}/  coupon
 ```
 
@@ -43,6 +43,8 @@ dais render                                 # SVG views -> docs/public/img/
 | `--out DIR` | output root (default `out` for `build`, `docs/public/img` for `render`) |
 | `-j N` | parallel processes (default: one per CPU) |
 | `--clean` | `build` only: remove `<out>/<board>/` first, so no stale part survives |
+| `--pattern NAME\|all` | skin pattern on the split top case -> `<design>-<pattern>/` ([options](/designs/options)) |
+| `--plate`, `--fastener`, `--bevel`, `--legacy` | construction options ([options](/designs/options)) |
 
 ## Print order
 

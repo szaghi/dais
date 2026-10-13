@@ -1,6 +1,6 @@
 # Split case
 
-`out/<board>/split/` -- **top-case**, **bottom-case**, **plate**, **feet**
+`out/<board>/split/` -- **top-case**, **bottom-case**, **feet**
 
 Two shells parted on a plane parallel to the top. The top case's lower edge is **2.0 mm above
 the case bottom at the front** and rises 7 deg toward the back (7.5 mm at the back face), so the
@@ -27,13 +27,19 @@ with a display-only keycap and switch ([how](/guide/development#photo-renders)).
 
 ## Fasteners
 
-- Four bottom-case corner columns (clearance holes) up to the lip top.
-- Four top-case columns (blind pilots) from the rebate top **up to the underside of the top
-  skin**, so nothing starts in mid-air when the top case prints top-down.
-- Each screw tip stops 0.4 mm short of the end of its pilot (3.2 mm of thread). The seam is
-  higher at the back, so the back counterbores are deeper (head seat 2.9 mm front, 7.0 mm
-  back): all four screws are the same **M2x6** (`SPLIT_SCREW_L`; the build fails if a
-  head would sink below the floor).
+- Four bottom-case corner columns (R4, M3 clearance holes) up to the lip top.
+- Four top-case columns (R4) from the rebate top **up to the underside of the top skin**, so
+  nothing starts in mid-air when the top case prints top-down; each takes an **M3 heat-set
+  insert** (hole 4.0 x 5.7 mm) from the open bottom.
+- Each screw tip ends 5 mm into its insert. The seam is higher at the back, so the back
+  counterbores are deeper (head seat 2.7 mm front, 6.8 mm back): all four screws are the same
+  **M3x8** button heads (the build fails if a head would sink below the floor).
+- `--legacy`: printed M2 pilots and M2x6 self-tapping screws instead. See
+  [Options](./options#heat-set-inserts).
+
+The switch plate is part of the top case: the key well narrows in a 45 deg funnel to the
+1.5 mm web that the switch clips into ([integrated plate](./options#integrated-switch-plate)).
+Optional [skin patterns](./options#skin-patterns) decorate the front and the sides.
 
 ## USB-C and floor
 

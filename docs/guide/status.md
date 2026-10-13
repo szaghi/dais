@@ -23,8 +23,12 @@ Edition map is inferred, not verified from a datasheet. Item 5 is the check.
 
 Things only a print can confirm:
 
-- the plate's corner reliefs against the one-piece body bosses (0.4 mm design clearance);
-- the split cases' lip in the rebate (0.15 mm per side) and the screw columns against the plate;
-- the trapezoid's angled walls printing cleanly top-down.
+- the integrated plate: the 0.9 mm switch-seat ring printing flat over the funnel, and the
+  switch clips holding in the printed 1.5 mm web;
+- a pressed keycap in the funnel with your actual keycap (0.5 mm per side in the model);
+- the 60 deg bevels on the bed against the 45 deg ones of the first prints;
+- the M3 inserts seating straight in the R4 columns, and the split cases' lip in the rebate
+  (0.15 mm per side);
+- the skin patterns' 0.5 mm relief at your nozzle size (0.4 mm resolves them; finer is better).
 
 The RP2040-Zero profile uses datasheet numbers only; measure the board before printing for it.

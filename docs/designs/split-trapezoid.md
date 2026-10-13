@@ -1,10 +1,11 @@
 # Split case, trapezoidal plan
 
-`out/<board>/split-trapezoid/` -- **top-case**, **bottom-case**, **plate**, **feet**
+`out/<board>/split-trapezoid/` -- **top-case**, **bottom-case**, **feet**
 
 The [split case](./split) with an isosceles-trapezoid plan: the back keeps its 43.6 mm width,
 the front grows to **53.6 mm** (`TRAP_FRONT_EXTRA = 10`, each side angled ~6.4 deg in plan).
-Seam, rounded rim, inset bottom case, lip in the rebate and **M2x6** screws are those of the
+Seam, rounded rim, inset bottom case, lip in the rebate, integrated plate, M3 inserts and **M3x8**
+screws are those of the
 split case. The rim, rebate, lip, cavity and screw axes all follow the angled sides: the screws
 stay 5.5 mm from both walls of each corner.
 

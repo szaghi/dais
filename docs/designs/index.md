@@ -6,12 +6,13 @@ are sculpted and how the case comes apart.
 
 | Design | Shells | Sides | Plan | Screws |
 |---|---|---|---|---|
-| [Side coves](./side-cove) | body + flush bottom plate | a teardrop cove on each side | 43.6 x 44.8 mm | 4x M2x8 |
-| [Wrap cove](./wrap-cove) | body + flush bottom plate | one cove along front, corners and sides | 43.6 x 44.8 mm | 4x M2x8 |
-| [Split case](./split) | top case + inset bottom case | the seam: rounded rim over a 1 mm shadow step | 43.6 x 44.8 mm | 4x M2x6 |
-| [Split, trapezoidal](./split-trapezoid) | top case + inset bottom case | as the split case | front 53.6, back 43.6 x 44.8 mm | 4x M2x6 |
+| [Side coves](./side-cove) | body + flush bottom plate | a teardrop cove on each side | 43.6 x 44.8 mm | 4x M3x6 |
+| [Wrap cove](./wrap-cove) | body + flush bottom plate | one cove along front, corners and sides | 43.6 x 44.8 mm | 4x M3x6 |
+| [Split case](./split) | top case + inset bottom case | the seam (+ optional skin pattern) | 43.6 x 44.8 mm | 4x M3x8 |
+| [Split, trapezoidal](./split-trapezoid) | top case + inset bottom case | as the split case | front 53.6, back 43.6 x 44.8 mm | 4x M3x8 |
 
-All four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet.
+All four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet; the switch plate
+built into the top shell, M3 heat-set inserts, 60 deg bevels -- see [Options and patterns](./options).
 
 ## Side by side
 
@@ -32,8 +33,8 @@ All four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet.
   1 mm shadow step, all the way round -- and the board sits in the bottom case's floor, so the
   electronics are open on the bench until the top case closes over them.
 
-Every design directory under `out/<board>/` is a complete print set; the shared parts (plate,
-feet, bottom plate) are duplicated into each, so any one of them prints alone.
+Every design directory under `out/<board>/` is a complete print set; the shared parts (feet,
+bottom plate) are duplicated into each, so any one of them prints alone.
 
 ## The views
 

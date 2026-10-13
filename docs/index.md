@@ -37,9 +37,14 @@ features:
     linkText: Parameters
   - icon: 🖨️
     title: Prints without supports
-    details: Top shells print top face down; every internal feature grows from the top skin. The test suite checks for overhangs, clashes and plate clearance on every build.
+    details: Top shells print top face down with the switch plate built in; every internal feature grows from the top skin, bevels on the bed are 60 deg. The test suite checks every design and pattern for overhangs and clashes.
     link: /guide/printing
     linkText: Printing
+  - icon: 🔩
+    title: Heat-set inserts and skin patterns
+    details: M3 brass inserts in the screw columns, no plate screws at all; optional flutes, knurl, hex scales or ripple on the split top case.
+    link: /designs/options
+    linkText: Options and patterns
   - icon: 🔌
     title: Upstream QMK
     details: No custom keyboard definition -- the upstream handwired/onekey target with a one-line keymap and bootmagic, so the closed case can still be flashed.

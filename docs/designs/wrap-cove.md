@@ -1,6 +1,6 @@
 # Wrap cove
 
-`out/<board>/wrap-cove/` -- **body**, **bottom**, **plate**, **feet**
+`out/<board>/wrap-cove/` -- **body**, **bottom**, **feet**
 
 The [side-cove](./side-cove) body with one **continuous cove** instead of two. The same R3
 ball cutter runs along the front wall, turns both R3 front corners at constant depth (a torus
@@ -22,7 +22,8 @@ with a display-only keycap and switch ([how](/guide/development#photo-renders)).
 | Height | lower edge 5.0 mm above the case bottom on the front face; the side runs rise 7 deg with the top |
 | Ends | each side run drifts out and runs out 4.5 mm before the back face |
 
-Everything else -- body, bosses, bottom plate, USB-C, **4x M2x8** screws -- is the
+Everything else -- body, integrated plate, bosses with M3 inserts, bottom plate, USB-C, **4x M3x6**
+screws -- is the
 [side-cove](./side-cove) design.
 
 <Views design="wrap-cove" :views="[['exploded', 'Exploded'], ['section', 'Section at x = 0 (back on the right)'], ['back', 'Back (USB-C)'], ['plan', 'Plan']]" />

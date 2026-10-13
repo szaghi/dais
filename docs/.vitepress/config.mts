@@ -18,6 +18,7 @@ const docs = [
       { text: 'Wrap cove',                    link: '/designs/wrap-cove' },
       { text: 'Split case',                   link: '/designs/split' },
       { text: 'Split case, trapezoidal plan', link: '/designs/split-trapezoid' },
+      { text: 'Options and patterns',         link: '/designs/options' },
     ],
   },
   {

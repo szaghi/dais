@@ -1,7 +1,8 @@
 # Printing
 
 Every part is exported in **assembly position**: rotate it onto the bed in the slicer as listed.
-The shells and the plate are **ASA-CF** (it needs a **hardened** nozzle); the feet are **TPU**.
+The shells are **ASA-CF** (it needs a **hardened** nozzle); the feet are **TPU**. Bevels on the
+bed are 60 deg from horizontal ([why](/designs/options#bevels)).
 
 ## Orientation
 
@@ -11,7 +12,7 @@ The shells and the plate are **ASA-CF** (it needs a **hardened** nozzle); the fe
 | `top-case` | split, split-trapezoid | **top face on the bed** (rotate -7 deg about X, flip) | no supports: every screw column grows from the top skin; open at the parting plane |
 | `bottom` | side-cove, wrap-cove | bottom face down | |
 | `bottom-case` | split, split-trapezoid | floor down | the lip top is tilted 7 deg (hidden inside) |
-| `plate` | all | flat, on its face | as dimensionally true as the coupon |
+| `plate` | `--legacy` / `--plate separate` only | flat, on its face | as dimensionally true as the coupon |
 | `feet` | all | flat | TPU; glued into the bottom recesses |
 | `coupon` | -- | flat | print **first** |
 
@@ -29,7 +30,10 @@ its size engraved. Print it in the plate's material and orientation, clip the sw
 and set `SW_CUT` in `src/dais/params.py` to the tightest one it clips into **fully**.
 Then rebuild.
 
-<Views design="common" :views="[['coupon', 'Switch-fit coupon'], ['plate', 'Switch plate: corner reliefs around the body bosses']]" />
+The integrated plate's cutout prints in the same orientation as the coupon (flat, in the XY
+plane), so the coupon result transfers directly.
+
+<Views design="common" :views="[['coupon', 'Switch-fit coupon']]" />
 
 ## Clearances
 
@@ -38,7 +42,9 @@ Then rebuild.
 | Bottom plate in the body opening | 0.2 mm per side | `BOTTOM_FIT` |
 | Board in its pocket | 0.3 mm total | `BOARD_FIT` |
 | Lip in the rebate (split) | 0.15 mm per side | `LIP_FIT` |
-| Plate corners around the body bosses | 0.4 mm | `PLATE_RELIEF` |
+| Pressed keycap in the funnel | 0.5 mm per side (conservative) | `FUNNEL_BOTTOM` |
+| Heat-set insert hole | 4.0 x 5.7 mm (M3) | `FASTENERS["insert"]` |
+| Plate corners around the body bosses (separate plate) | 0.4 mm | `PLATE_RELIEF` |
 | USB-C receptacle in the slot | 0.6 mm total | `USB_SLOT_FIT` |
 
 If your printer runs tight or loose, these are the constants to adjust.

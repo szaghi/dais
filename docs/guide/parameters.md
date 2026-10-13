@@ -14,10 +14,10 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `WELL` | 19.6 | key well opening: 1U cap (18.0-18.4) + ~0.6 per side |
 | `WELL_DEPTH` | 4.0 | top face above the plate top: the cap sits sunk in the well |
 | `WELL_R` | 1.0 | well corner radius |
-| `WELL_RIM` | 0.5 | 45 deg chamfer on the well rim |
-| `TOP_EDGE` | 0.8 | 45 deg chamfer, top perimeter (on the bed when printing) |
+| `WELL_RIM` | 0.5 | chamfer on the well rim: height (the run follows Options.bevel) |
+| `TOP_EDGE` | 0.8 | chamfer, top perimeter (on the bed when printing): height |
 | `R_CORNER` | 3.0 | vertical body corners |
-| `BOTTOM_EDGE` | 1.2 | 45 deg chamfer, bottom perimeter |
+| `BOTTOM_EDGE` | 1.2 | chamfer, bottom perimeter (on the bed for the split bottom case): height |
 | `COVE_BOTTOM` | 5.0 | lower edge of the cove on the front face, above the case bottom |
 | `COVE_DEPTH` | 1.0 | at the head |
 | `COVE_BALL` | 3.0 | cutter radius: with COVE_DEPTH sets the head width (~4.5 mm), ~48 deg print overhang |
@@ -60,18 +60,19 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `USB_SLOT_FIT` | 0.6 | clearance around the receptacle in the wall slot |
 | `USB_WALL_LEFT` | 0.6 | wall left where the receptacle face sits |
 
+## Integrated switch plate
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `FUNNEL_BOTTOM` | 15.8 | well narrows at 45 deg to this at the plate top (MX top housing 15.6) |
+| `PLATE_SCREW_PILOT` | 1.7 | separate plate only: M2 self-tapping pilots in the top skin |
+| `PLATE_SCREW_CLEAR` | 2.4 | separate plate only: M2 clearance holes in the plate |
+
 ## Shell and fasteners
 
 | Constant | Value | Meaning |
 |---|---|---|
 | `WALL` | 3.0 |  |
-| `BOSS_R` | 3.0 |  |
-| `BOSS_H` | 8.0 | pilot depth into the one-piece body bosses (the bosses run up to the roof) |
-| `BOSS_INSET` | 3.2 | boss centre from the inner wall: keeps the counterbores inside the bottom plate |
-| `SCREW_PILOT` | 1.7 | M2 self-tapping pilot |
-| `SCREW_CLEAR` | 2.4 |  |
-| `SCREW_HEAD_D` | 4.2 |  |
-| `SCREW_HEAD_H` | 1.8 |  |
 
 ## Split designs: bottom case inserted into the top case
 
@@ -85,10 +86,7 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `LIP_FIT` | 0.15 | clearance per side, lip in the rebate |
 | `LIP_TOP_GAP` | 0.2 | lip top below the rebate top |
 | `SPLIT_BOSS_INSET` | 2.5 | screw axis from the inner wall (bottom-case columns fuse into the wall) |
-| `TOP_BOSS_R` | 2.5 | top-case screw column |
 | `SPLIT_FRONT_Z` | 2.0 | top case lower edge on the front face, above the case bottom (seam rises TILT) |
-| `SPLIT_SCREW_L` | 6.0 | all four M2 screws the same length: deeper counterbores where the seam is higher |
-| `SPLIT_SCREW_ENGAGE` | 4.0 | thread engagement in the top-case column |
 | `TRAP_FRONT_EXTRA` | 10.0 | trapezoid plan: front this much wider than the back (sides ~6.4 deg) |
 
 ## Feet
@@ -99,3 +97,50 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `FOOT_T` | 1.4 | TPU strip thickness |
 | `FOOT_RECESS` | 0.6 | recess depth: strips stand 0.8 mm proud |
 | `FOOT_INSET` | 5.0 | strip centre-line distance from the bottom plate front/back edge |
+
+## Skin patterns (split top case sides)
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `PATTERN_DEPTH` | 0.5 | relief depth into the 3 mm wall |
+| `PATTERN_RAMP` | 56.0 | lower groove ends ramp out at this angle from the wall: >= 45 + TILT + margin, as printed |
+| `PATTERN_MARGIN` | 1.2 | clear of the corner rounds, along each face |
+| `PATTERN_BOTTOM` | 0.8 | band starts this far above the rebate top (full wall thickness behind it) |
+| `PATTERN_TOP` | 1.0 | band stops this far below the top bevel |
+| `FLUTE_R` | 1.0 | flutes: cutter radius (0.45 deep -> ~1.7 mm wide) |
+| `FLUTE_PITCH` | 2.6 |  |
+| `KNURL_PITCH` | 2.4 | knurl: 90 deg V-grooves at +-45 deg |
+| `HEX_FLATS` | 3.0 | hex scales: across flats at the surface; walls drafted 45 deg |
+| `HEX_GAP` | 0.7 |  |
+| `RIPPLE_R` | 4.0 | ripple: wide shallow grooves swept along a sine |
+| `RIPPLE_PITCH` | 3.2 |  |
+| `RIPPLE_AMP` | 0.5 |  |
+| `RIPPLE_WAVE` | 14.0 |  |
+
+## Fasteners
+
+| `FASTENERS` | `self-tap` | `insert` |
+|---|---|---|
+| `label` | M2 self-tapping | M3 heat-set insert |
+| `hole_d` | 1.7 | 4.0 |
+| `hole_depth` | 3.6 | 6.2 |
+| `body_hole` | 8.0 | 7.2 |
+| `tip` | 3.2 | 5.0 |
+| `split_screw_l` | 6.0 | 8.0 |
+| `clear_d` | 2.4 | 3.4 |
+| `head_d` | 4.2 | 6.0 |
+| `head_h` | 1.8 | 1.8 |
+| `boss_r` | 3.0 | 4.0 |
+| `top_boss_r` | 2.5 | 4.0 |
+| `boss_inset` | 3.2 | 4.2 |
+
+## Build options
+
+| `Options` | default | `LEGACY` |
+|---|---|---|
+| `plate` | integrated | separate |
+| `fastener` | insert | self-tap |
+| `bevel` | 60.0 | 45.0 |
+| `pattern` | None | None |
+
+`PATTERNS`: `flutes`, `knurl`, `hex`, `ripple` (split top case sides).

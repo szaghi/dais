@@ -40,6 +40,13 @@ is generated too but is what the docs and README display, so re-render after geo
   hugging a wall. Also the wedge, the key well + plate pilots cutter, the split USB-C cuts.
 - `one_piece.py` (body + side/wrap coves), `split.py` (top case, bottom case), `parts.py`
   (plate, bottom plate/floor, feet, coupon).
+- `params.Options` (plate integrated|separate, fastener insert|self-tap via the `FASTENERS`
+  table, bevel deg, pattern) travels in `Layout.opt`; defaults = integrated plate + M3 inserts +
+  60 deg bevels. `LEGACY` = the first prototypes and must reproduce
+  `tests/golden_volumes_legacy.json` EXACTLY -- never regenerate that file to make a test pass.
+  `patterns.py`: flutes/knurl/hex/ripple cutters on the split top case (front + sides), built per
+  face in a local frame and clipped to a band; overhang-checked by the tests. CLI variants:
+  `--pattern X|all` -> `out/<board>/<design>-<pattern>/` + `options.json`.
 - `designs.py`: `DESIGNS` registry -- `side-cove`, `wrap-cove`, `split`, `split-trapezoid`.
   A new design is one `Design` entry; CLI, output tree and renderer pick it up (add its docs
   page and sidebar entry by hand). `Design.build()` runs `check()`: valid single solids (feet
@@ -65,6 +72,10 @@ is generated too but is what the docs and README display, so re-render after geo
   plate corner was dropped at one corner of four. Cut before filleting; verify symmetric cuts.
   `check()` catches overlap, not clearance -- clearance needs its own test.
 - Coincident faces in a union give an invalid solid: trim by 0.01 mm.
+- Worker pools use the **spawn** context: forking after OCC/fontconfig work in-process deadlocks
+  the child (seen in tests calling `main()` twice).
+- Many crossing cutters (knurl): pass one `Compound` to a single boolean, never fuse in a loop
+  (90 s -> 5 s). Closed ellipse edges crash the SVG exporter: `render._drawable` splits them.
 - Edge breaks select faces by position (`sort_by(Axis.Z)[0]`, seam face along the tilted
   normal): adding lower/higher faces before them changes what gets chamfered.
 - `tests/golden_volumes.json` pins every part volume (rel 1e-9). After an **intended** geometry

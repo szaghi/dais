@@ -25,18 +25,19 @@ The tests build every design once per session (about 10 s) and check what the bu
 
 | Test | Guards |
 |---|---|
-| `test_golden_volumes` | every part's volume against `tests/golden_volumes.json`: any unintended geometry change fails |
-| `test_top_case_prints_without_supports` | no downward-facing face inside the split top cases in print orientation |
-| `test_body_only_overhang_is_the_usb_bridge` | the one-piece body's only overhang is the bridged USB-C slot roof |
-| `test_plate_relief_clears_every_body_boss` | 0.4 mm around all four bosses (a silent OCC cut failure once missed one) |
-| `test_split_columns_clear_the_plate` | > 1 mm between the plate and the top-case columns |
+| `test_golden_volumes[default\|legacy]` | every part's volume against `tests/golden_volumes.json` (defaults) and `tests/golden_volumes_legacy.json` (`LEGACY`: the first prototypes, which new options must never disturb) |
+| `test_top_shell_prints_without_supports` | no bed-facing overhang in any top shell except the 0.9 mm switch-seat ring (and the one-piece USB-C bridge) |
+| `test_patterns_build_and_print_without_supports` | every pattern on both split designs: valid, cut, no overhang |
+| `test_pressed_keycap_clears_the_funnel` | > 0.3 mm between a fully pressed keycap and the integrated plate's funnel |
+| `test_insert_holes_have_wall` | >= 1.9 mm of plastic around the M3 insert holes |
+| `test_legacy_plate_relief_clears_every_body_boss` | separate plate: 0.4 mm around all four bosses (a silent OCC cut failure once missed one) |
 | `test_build_writes_design_tree` | the `out/<board>/<design>/{stl,step}/` layout |
 | `test_params_page_lists_every_constant` | the parameters page covers `params.py` |
 
 ### After an intended geometry change
 
-The golden-volume test fails by design. Check the change in the views (`make render`), then
-regenerate the reference:
+The default golden-volume test fails by design (the legacy one must not: a change there means
+the first prototypes moved). Check the change in the views (`make render`), then regenerate:
 
 ```bash
 .venv/bin/python tests/test_geometry.py     # rewrites tests/golden_volumes.json
