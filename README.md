@@ -70,3 +70,7 @@ The full documentation is a VitePress site in `docs/` (`make docs-dev` to browse
 
 Prototype stage. Still to measure: the switch cutout (coupon), the USB-C cable overmold, the
 tallest component under the switch, and the microSAM pinout (short A3-A2 before soldering).
+
+## License
+
+[MIT](LICENSE) -- code, generated CAD files, renders, documentation and the QMK keymap alike.

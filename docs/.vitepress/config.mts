@@ -68,7 +68,7 @@ export default withMermaid({
     outline: [2, 3],
 
     footer: {
-      message: 'Case geometry generated with <a href="https://build123d.readthedocs.io">build123d</a>; firmware: <a href="https://qmk.fm">QMK</a>.',
+      message: 'Released under the <a href="https://github.com/szaghi/dais/blob/main/LICENSE">MIT License</a>. Case geometry generated with <a href="https://build123d.readthedocs.io">build123d</a>; firmware: <a href="https://qmk.fm">QMK</a>.',
       copyright: 'Copyright © 2026 Stefano Zaghi',
     },
   },

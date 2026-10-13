@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,8 @@ name = "dais"
 version = "0.0.0"
 description = "Parametric build123d case for a one-key MX macropad (RP2040, QMK)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = ["build123d>=0.13", "pillow>=10"]
 
