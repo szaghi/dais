@@ -56,7 +56,8 @@ qmk compile -kb handwired/onekey/promicro -km enter -e CONVERT_TO=rp2040_ce
 
 ## Documentation
 
-The full documentation is a VitePress site in `docs/` (`make docs-dev` to browse it locally):
+The full documentation is published at **https://szaghi.github.io/dais/** (VitePress sources in
+`docs/`; `make docs-dev` to browse them locally):
 
 - [About](docs/guide/index.md) -- design language, hardware, repository layout
 - [Designs](docs/designs/index.md) -- the four variants, with every view
