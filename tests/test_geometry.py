@@ -263,6 +263,11 @@ def test_usb_window_clears_the_plug_and_has_no_bridge(built: Built, name: str) -
     )
     for part in ("bottom-case", "top-case"):
         assert (plug & parts[part]).volume < 1e-3, part
+    # the bottom case has nothing spanning the window at any height: the top case closes it
+    column = Pos(0, lay.depth / 2 - params.WALL - 0.5, lo + 0.05) * Box(
+        w, params.WALL + 2, 50, align=(Align.CENTER, Align.MIN, Align.MIN)
+    )
+    assert (column & parts["bottom-case"]).volume < 1e-3
 
 
 def test_split_layout_rejects_a_board_outside_the_seat() -> None:

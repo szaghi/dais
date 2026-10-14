@@ -169,9 +169,13 @@ def window_z() -> tuple[float, float]:
     return lo, hi
 
 
-def usb_window(depth: float) -> Part:
+def usb_window(depth: float, open_top: bool = False) -> Part:
     """Cutter: the plug-sized USB-C window through the whole back wall, from just in front of the
-    nearest possible receptacle face; cut from both shells, it parts at the seam (no bridge)."""
+    nearest possible receptacle face. ``open_top`` for the bottom case: nothing of it may span the
+    window -- its lip rises above the window top at the back and would leave a bridge -- so the
+    top case alone closes the window from above."""
     lo, hi = window_z()
+    if open_top:
+        hi = BIG
     y0 = jaw_y(depth) - _dw(SEAT_W[1]) - abs(_dt(SEAT_PCB_T[0])) - 0.5
     return Pos(0, y0, lo) * Box(2 * window_half_width(), depth / 2 + 1 - y0, hi - lo, align=BACK)

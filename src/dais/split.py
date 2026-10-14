@@ -29,7 +29,7 @@ from .params import (
 )
 from .parts import make_bottom
 from .patterns import skin_pattern
-from .seat import rear_jaws
+from .seat import rear_jaws, usb_window
 from .shell import bevel, integrated_plate, key_well, outer_shell, outline, plan_pts, side_x, usb_cuts
 
 
@@ -108,4 +108,5 @@ def make_bottom_case(lay: Layout) -> Part:
     if lay.seat:  # generic controller seat: the rear jaws the PCB's back corners wedge into
         jaws, carve = rear_jaws(lay.depth)
         case = (case + jaws) - carve
+        return case - usb_window(lay.depth, open_top=True)  # no lip bridge over the receptacle
     return case - usb_cuts(lay)
