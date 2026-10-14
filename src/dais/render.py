@@ -130,10 +130,11 @@ def render_design(board: str, name: str, opt: Options, dirname: str, out: str) -
     base = parts["bottom-case" if split else "bottom"]
     plate = parts.get("plate")  # None when the plate is part of the top shell
     feet = parts["feet"]
+    clamp = [parts["board-clamp"]] if "board-clamp" in parts else []  # generic controller seat
     loose = [lift_one(plate)] if plate is not None else []
     d = dummies(lay)
     switch = [d["sw_top"], d["cap"]]
-    case = [shell, base, feet]
+    case = [shell, base, feet, *clamp]
     half = Pos(-100, 0, 0) * Box(200, 200, 200)  # keep x < 0
     lift = Pos(0, 0, EXPLODE)
     scenes: dict[str, list[Shape]] = {
@@ -144,14 +145,27 @@ def render_design(board: str, name: str, opt: Options, dirname: str, out: str) -
         "back": [*case, *switch],
         "plan": case,
         "exploded": [lift * lift * s for s in switch]
-        + [lift * lift * shell, *loose, d["pcb"], d["usb"], base, Pos(0, 0, -EXPLODE / 2) * feet],
+        + [lift * lift * shell, *loose, *(lift_one(c) for c in clamp), d["pcb"], d["usb"], base]
+        + [Pos(0, 0, -EXPLODE / 2) * feet],
         "section": [
             s & half
-            for s in (shell, base, plate, feet, d["pcb"], d["usb"], d["sw_top"], d["sw_bot"], d["sw_pin"], d["cap"])
+            for s in (
+                shell,
+                base,
+                plate,
+                *clamp,
+                feet,
+                d["pcb"],
+                d["usb"],
+                d["sw_top"],
+                d["sw_bot"],
+                d["sw_pin"],
+                d["cap"],
+            )
             if s is not None
         ],
         "underside": [shell],
-        "base-board": [base, d["pcb"], d["usb"]],
+        "base-board": [base, *clamp, d["pcb"], d["usb"]],
     }
     directory = Path(out) / dirname
     for view, shapes in scenes.items():

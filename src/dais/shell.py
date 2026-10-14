@@ -21,6 +21,7 @@ from build123d import (
     fillet,
 )
 
+from . import seat
 from .layout import Layout
 from .params import (
     FUNNEL_BOTTOM,
@@ -134,7 +135,10 @@ def integrated_plate(lay: Layout) -> Part:
 
 def usb_cuts(lay: Layout) -> Part:
     """USB-C receptacle slot (through wall and lip zone) + plug notch from the receptacle face out
-    through the back; the split designs cut it from both shells, since the seam crosses the plug."""
+    through the back; the split designs cut it from both shells, since the seam crosses the plug.
+    With the generic seat it is one plug-sized window through the whole wall (``seat.usb_window``)."""
+    if lay.seat:
+        return seat.usb_window(lay.depth)
     b = lay.board
     slot_l = lay.depth / 2 + 1 - (lay.board_back - 0.5)
     slot = Pos(0, lay.board_back - 0.5 + slot_l / 2, lay.usb_z) * Box(

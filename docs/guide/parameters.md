@@ -89,6 +89,26 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `SPLIT_FRONT_Z` | 2.0 | top case lower edge on the front face, above the case bottom (seam rises TILT) |
 | `TRAP_FRONT_EXTRA` | 10.0 | trapezoid plan: front this much wider than the back (sides ~6.4 deg) |
 
+## Generic controller seat (split and plinth designs)
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `SEAT_LEN` | (32.5, 35.5) | PCB length range (microSAM 34.6, Pro Micro 33.0) |
+| `SEAT_W` | (16.8, 20.0) | PCB width range (microSAM 18.4, Pro Micro 18.0) |
+| `SEAT_PCB_T` | (1.0, 1.6) | PCB thickness range |
+| `SEAT_USB_H` | (3.2, 4.0) | receptacle height above the PCB top |
+| `PIN_ROW_X` | 7.62 | Pro Micro pin rows, +-0.3 in from the centre line: solder-joint grooves under them |
+| `JAW_PLAN` | 30.0 | jaw/clamp faces in plan, from the board's short edge: corners slide to the centre |
+| `JAW_LEAN` | 60.0 | jaw/clamp faces from horizontal, leaning over the PCB: they hold it down |
+| `JAW_SET` | 2.9 | rear jaws' reference line in front of the outer back face: microSAM's USB-C 1.5 recessed |
+| `JAW_CAP` | 1.0 | the lean stops this far above the mid PCB top (keeps the corner pins clear) |
+| `JAW_H` | 3.1 | rear jaws' height above the pocket floor |
+| `CLAMP_LEN` | 7.5 | front clamp, along Y: crossbar + the insert column |
+| `CLAMP_H` | 6.5 | front clamp height: the M3 insert (5.7) + 0.8 |
+| `CLAMP_STEM` | 8.0 | width of the insert column |
+| `SLOT_CBORE` | 1.4 | floor slot counterbore from below: the M3 button head stays 0.4 inside the feet |
+| `USB_WINDOW_PLAY` | 0.3 | USB-C window beyond the plug overmold, per side (the jaws centre the board) |
+
 ## Plinth designs: high top up to the artisan's base line
 
 | Constant | Value | Meaning |
@@ -155,6 +175,7 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `fastener` | insert | self-tap |
 | `bevel` | 60.0 | 45.0 |
 | `pattern` | None | None |
+| `seat` | generic | pocket |
 
 `PATTERNS`: `fuzzy`, `voronoi`, `facets`, `fuzzy-full`, `voronoi-full`, `facets-full` (split top case sides).
 

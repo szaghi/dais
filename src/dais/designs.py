@@ -15,6 +15,7 @@ from .layout import Layout
 from .one_piece import Cove, make_body
 from .params import BOARDS, PLINTH, PLINTH_LONG, TRAP_FRONT_EXTRA, Look, Options
 from .parts import make_bottom, make_feet, make_plate
+from .seat import make_clamp
 from .split import make_bottom_case, make_top_case
 
 
@@ -55,6 +56,8 @@ def _one_piece(cove: Cove) -> Callable[[Layout], dict[str, Part]]:
 
 def _split(lay: Layout) -> dict[str, Part]:
     parts = {"top-case": make_top_case(lay), "bottom-case": make_bottom_case(lay)}
+    if lay.seat:  # generic controller seat: the front clamp, positioned on this board
+        parts["board-clamp"] = make_clamp(lay.depth, lay.board)
     return _with_plate_and_feet(parts, lay)
 
 

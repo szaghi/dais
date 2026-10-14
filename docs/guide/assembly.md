@@ -4,11 +4,12 @@
 
 | Part | Notes |
 |---|---|
-| Khor microSAM (RP2040, Pro Micro / Elite-C footprint, USB-C) | alternative: Waveshare RP2040-Zero (`--board rp2040zero`) |
+| Khor microSAM (RP2040, Pro Micro / Elite-C footprint, USB-C) | the split / plinth designs take any Pro Micro-style USB-C board ([ranges](/designs/split#controller-seat-and-usb-c)); one-piece alternative: Waveshare RP2040-Zero (`--board rp2040zero`) |
 | 1x MX switch, 3- or 5-pin | plate-mounted, no PCB |
 | 2 short wires (~5 cm, 26-28 AWG silicone) | switch pins to board |
-| 4x M3 heat-set inserts | hole 4.0 x 5.7 mm (Ruthex / CNC Kitchen style), melted into the screw columns |
-| 4x M3x8 button-head screws (ISO 7380) | bottom case -> top case (split, split-trapezoid) |
+| 4x M3 heat-set inserts (5x for split / plinth) | hole 4.0 x 5.7 mm (Ruthex / CNC Kitchen style), melted into the screw columns (+1 into the board clamp) |
+| 4x M3x8 button-head screws (ISO 7380) | bottom case -> top case (split, split-trapezoid, plinth, plinth-long) |
+| 1x M3x6 button-head screw (ISO 7380) | board clamp, from below (split, plinth designs) |
 | 4x M3x6 button-head screws (ISO 7380) | bottom plate -> body bosses (side-cove, wrap-cove) |
 | ASA-CF, TPU | shells; feet |
 | CA glue | feet into their recesses |
@@ -35,25 +36,31 @@ first, then short A3-A2 with tweezers and confirm an Enter keypress **before** s
 ```mermaid
 flowchart LR
   I[Melt the 4 M3<br/>inserts in] --> A[Glue TPU feet]
-  A --> B[Seat board<br/>front edge on the stop]
+  A --> B[Seat board:<br/>stop or clamp]
   B --> C[Clip switch into<br/>the top shell]
   C --> E[Solder 2 wires,<br/>flash, test]
   E --> F[Close the case]
   F --> G[Fit the keycap]
 ```
 
-1. Melt the four M3 inserts into the screw columns from the open side (iron at about the
+1. Melt the four M3 inserts into the screw columns from the open side (split / plinth: and the
+   fifth into the board clamp) (iron at about the
    filament's print temperature, ~250 deg C for ASA-CF), straight and flush; let them cool.
 2. Glue the TPU feet into the recesses under the bottom plate / bottom case.
-3. Seat the board in its pocket, front edge against the stop, USB-C toward the back.
+3. Seat the board, USB-C toward the back:
+   - **side-cove / wrap-cove**: in its pocket, front edge against the stop;
+   - **split / plinth designs**: lay it in the floor pocket, push its back corners into the two
+     rear jaws, slide the board clamp (insert melted in, from its underside) against the front
+     corners and tighten the **M3x6** from below. Snug is enough: the faces hold the board down
+     and centred.
 4. Push the switch into the top shell from above, through the well, until both clips snap
    under the integrated plate.
 5. Solder the two switch wires to the board, [flash](/guide/firmware), test.
 6. Close:
    - **side-cove / wrap-cove**: bottom plate into the body opening, USB-C into the back-wall
      slot, 4x **M3x6** into the inserts;
-   - **split / split-trapezoid**: lower the top case over the bottom case -- the lip locates in
-     the rebate and the USB-C notch closes round the receptacle -- then 4x **M3x8** from below.
+   - **split / plinth designs**: lower the top case over the bottom case -- the lip locates in
+     the rebate and the top case closes the USB-C window -- then 4x **M3x8** from below.
 7. Fit the keycap.
 
 To take a switch out, open the case and press its two clips from below: a switch puller cannot

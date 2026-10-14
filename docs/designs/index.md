@@ -8,12 +8,12 @@ are sculpted and how the case comes apart.
 |---|---|---|---|---|
 | [Side coves](./side-cove) | body + flush bottom plate | a teardrop cove on each side | 43.6 x 44.8 mm | 4x M3x6 |
 | [Wrap cove](./wrap-cove) | body + flush bottom plate | one cove along front, corners and sides | 43.6 x 44.8 mm | 4x M3x6 |
-| [Split case](./split) | top case + inset bottom case | the seam (+ optional skin pattern) | 43.6 x 44.8 mm | 4x M3x8 |
-| [Split, trapezoidal](./split-trapezoid) | top case + inset bottom case | as the split case | front 53.6, back 43.6 x 44.8 mm | 4x M3x8 |
-| [Plinth](./plinth) | as the split case | as the split case; high top up to the keycap base | 39.2 x 44.8 mm | 4x M3x8 |
-| [Plinth, board behind](./plinth-long) | as the split case | as the plinth; board behind the switch | 39.2 x 66.0 mm | 4x M3x8 |
+| [Split case](./split) | top case + inset bottom case | the seam (+ optional skin pattern) | 43.6 x 51.4 mm | 4x M3x8 |
+| [Split, trapezoidal](./split-trapezoid) | top case + inset bottom case | as the split case | front 53.6, back 43.6 x 51.4 mm | 4x M3x8 |
+| [Plinth](./plinth) | as the split case | as the split case; high top up to the keycap base | 39.2 x 51.4 mm | 4x M3x8 |
+| [Plinth, board behind](./plinth-long) | as the split case | as the plinth; board behind the switch | 39.2 x 73.2 mm | 4x M3x8 |
 
-The first four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet (the plinths: see their pages); all six: the switch plate
+Height, +0.8 mm of feet: 19.7 -> 25.2 mm (one-piece), 19.3 -> 25.7 mm (split; deeper for the controller clamp), the plinths: see their pages. The split and plinth designs hold any Pro Micro-style USB-C board ([seat](./split#controller-seat-and-usb-c)); all six: the switch plate
 built into the top shell, M3 heat-set inserts, 60 deg bevels -- see [Options and patterns](./options).
 
 ## Side by side

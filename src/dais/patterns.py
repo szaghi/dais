@@ -37,6 +37,7 @@ from build123d import (
 )
 from scipy.spatial import Voronoi
 
+from . import seat
 from .layout import Layout, between
 from .params import (
     FACET_DEPTH,
@@ -548,8 +549,13 @@ def _facets_full(lay: Layout) -> Part:
 
 
 def notch_top(lay: Layout) -> float:
-    """World height of the USB-C plug notch's top (``shell.usb_cuts``)."""
-    return lay.usb_z + PLUG_H / 2 + 0.3
+    """World height of the USB-C opening's top (``shell.usb_cuts``)."""
+    return seat.window_z()[1] if lay.seat else lay.usb_z + PLUG_H / 2 + 0.3
+
+
+def notch_width(lay: Layout) -> float:
+    """Width of the USB-C opening (``shell.usb_cuts``)."""
+    return 2 * seat.window_half_width() if lay.seat else PLUG_W
 
 
 def _usb_keepout(lay: Layout) -> Part:
@@ -561,7 +567,9 @@ def _usb_keepout(lay: Layout) -> Part:
     ramp = Location(Plane(origin=(0, d, z), z_dir=Vector(0, math.tan(a), 1).normalized())) * Box(
         BIG, BIG, BIG, align=BELOW
     )
-    zone = Pos(0, d - 6, 0) * Box(PLUG_W + 2 * USB_KEEPOUT, 20, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER))
+    zone = Pos(0, d - 6, 0) * Box(
+        notch_width(lay) + 2 * USB_KEEPOUT, 20, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER)
+    )
     return ramp & zone
 
 
@@ -599,7 +607,10 @@ def fuzzy_modifier(lay: Layout, full: bool = False) -> Part:
     edge = top_edge(lay)
     if full:
         notch = Pos(0, lay.depth / 2 - 6, -1) * Box(
-            PLUG_W + 2 * USB_KEEPOUT, 20, notch_top(lay) + USB_KEEPOUT + 1, align=(Align.CENTER, Align.MIN, Align.MIN)
+            notch_width(lay) + 2 * USB_KEEPOUT,
+            20,
+            notch_top(lay) + USB_KEEPOUT + 1,
+            align=(Align.CENTER, Align.MIN, Align.MIN),
         )
         return (skin & between(lay, RIM_R + 0.2, top - edge - 0.2)) - notch
     band = between(lay, REBATE_H + 0.3, top - edge - 0.4)

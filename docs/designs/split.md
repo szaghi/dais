@@ -1,9 +1,9 @@
 # Split case
 
-`out/<board>/split/` -- **top-case**, **bottom-case**, **feet**
+`out/<board>/split/` -- **top-case**, **bottom-case**, **board-clamp**, **feet**
 
 Two shells parted on a plane parallel to the top. The top case's lower edge is **2.0 mm above
-the case bottom at the front** and rises 7 deg toward the back (7.5 mm at the back face), so the
+the case bottom at the front** and rises 7 deg toward the back (8.3 mm at the back face), so the
 top case takes nearly all the height and only a 2 mm band of the bottom case shows at the front
 (0.8 mm of face above the 1.2 mm base chamfer). There is no cove: the joint itself is the feature.
 
@@ -56,11 +56,37 @@ notes in [Options and patterns](./options#skin-patterns).
   ['split-fuzzy-full/hero', 'fuzzy-full (slicer modifier)', './options#full-side-versions'],
 ]" />
 
-## USB-C and floor
+## Controller seat and USB-C
 
-The seam crosses the receptacle at the back, so the receptacle slot and a 12.5 mm plug notch
-are cut through the back of **both** shells (a rectangular cut-out spanning the seam). The floor
-is part of the bottom case: the same board pocket, front stop, pin-row grooves and feet
-recesses as the one-piece bottom plate.
+The bottom case takes **any Pro Micro-style board with a top-mount USB-C**, not just the
+microSAM. The board is clamped, not fitted:
 
-<Views design="split" :views="[['exploded', 'Exploded'], ['base-board', 'Bottom case with board'], ['back', 'Back (USB-C)'], ['underside', 'Top case from below']]" />
+| Range | |
+|---|---|
+| PCB length | 32.5 - 35.5 mm (`SEAT_LEN`) |
+| PCB width | 16.8 - 20.0 mm (`SEAT_W`) |
+| PCB thickness | 1.0 - 1.6 mm (`SEAT_PCB_T`) |
+| USB-C height above the PCB | 3.2 - 4.0 mm (`SEAT_USB_H`), any overhang up to ~2.5 mm |
+
+- **Rear jaws.** Two wedges beside the USB-C take the PCB's back corners. Their faces are angled
+  30 deg in plan (`JAW_PLAN`), so a corner slides toward the centre line whatever the board's
+  width, and lean 60 deg over the PCB (`JAW_LEAN`), so they press its top edge down whatever its
+  thickness. The lean stops 1 mm above the PCB: the corner pins stay free for wires.
+- **Front clamp** (`board-clamp`, a separate part). The same faces on two horns push the front
+  corners back into the jaws. It carries an M3 heat-set insert and slides in a slot in the floor;
+  one **M3x6** button head from below locks it. Push it against the board, tighten: done. The
+  slot covers the whole range, from the longest and widest board to the shortest and narrowest.
+- **The USB-C window** is plug-sized (12.5 + 2 x 0.3 mm wide, `PLUG_W`) and goes through the
+  whole back wall: the bottom case forms its lower part, the top case closes it from above. There
+  is no bridge over the receptacle any more, and the receptacle can sit anywhere in it: the jaws
+  centre it, its overhang only changes how far in it sits (the microSAM's face is 1.5 mm inside).
+- The floor keeps the pocket (now wide enough for any board of the range) and the solder-joint
+  grooves under the Pro Micro pin rows. The front foot is split in two round the screw head.
+- The clamp's travel costs depth: the split designs are 51.4 mm deep (44.8 with the fitted
+  pocket of the first prototypes, `--seat pocket`, which `--legacy` uses).
+
+<Views design="split" :views="[['base-board', 'Bottom case with board and clamp'], ['back', 'Back: the USB-C window across the seam']]" />
+
+<Views design="split" :views="[['exploded', 'Exploded'], ['underside', 'Top case from below']]" />
+
+

@@ -12,15 +12,21 @@ from dataclasses import dataclass
 
 from build123d import Box, Location, Part, Pos, Rot
 
+from . import seat
 from .params import (
     BOARD_FIT,
     BOTTOM_T,
+    CLAMP_LEN,
     COMP_H,
+    JAW_SET,
+    LIP_FIT,
+    LIP_T,
     LONG_PIN_GAP,
     MAX,
     MIN,
     PLATE,
     POCKET_D,
+    RIM_WALL,
     SPLIT_BOSS_INSET,
     SPLIT_FRONT_Z,
     STOP_T,
@@ -57,6 +63,7 @@ class Layout:
     bosses: tuple[tuple[float, float], ...]  # one-piece body bosses
     opt: Options  # construction choices: plate, fastener, bevel, pattern
     look: Look  # top-side proportions: bezel, key hole, top height, edge chamfer, board position
+    seat: bool  # split designs: generic controller seat (rear jaws + front clamp, ``seat``)
 
     @classmethod
     def for_board(
@@ -71,6 +78,9 @@ class Layout:
 
         With ``look.board == "behind"`` the board sits behind the switch instead of under it: the
         plate drops by the board and component stack, the key moves forward and the case gets deeper.
+        ``split`` designs get the generic controller seat (``opt.seat == "generic"``): the depth
+        holds the longest board of the seat's ranges plus the front clamp, and ``board`` must be
+        within those ranges.
         """
         opt = opt or Options()
         look = look or Look()
@@ -83,16 +93,23 @@ class Layout:
             SW_BELOW * math.cos(t) + SW_HALF * math.sin(t), (SW_BELOW + SW_PINS) * math.cos(t) + SW_PIN_Y * math.sin(t)
         )
         stack = board.length + BOARD_FIT + STOP_T  # board pocket + front stop, from the back inner wall
+        generic = split and opt.seat == "generic"  # the generic controller seat
+        if generic:
+            seat.check_board(board)
+            stack = JAW_SET + seat.span() + CLAMP_LEN  # back outer face -> clamp front
         if look.board == "behind":
-            # pins clear the floor by WIRE_GAP; their back reach clears the board's front stop
+            # pins clear the floor by WIRE_GAP; their back reach clears the board's front stop / clamp
             key_z = BOTTOM_T + WIRE_GAP + drop
             reach = SW_PIN_Y * math.cos(t) + (SW_BELOW + SW_PINS) * math.sin(t)
-            depth = look.front_bezel + look.well / 2 + reach + LONG_PIN_GAP + stack + setback + WALL
-            depth = max(width, depth)
+            back = stack if generic else stack + setback + WALL
+            depth = max(width, look.front_bezel + look.well / 2 + reach + LONG_PIN_GAP + back)
             key_y = -depth / 2 + look.front_bezel + look.well / 2
         else:
             key_z = board_top + COMP_H + WIRE_GAP + drop
-            depth = max(width, stack + 1.0 + setback + 2 * WALL)
+            if generic:  # the clamp stays inside the bottom case's lip
+                depth = max(width, stack + RIM_WALL + LIP_FIT + LIP_T + 0.2)
+            else:
+                depth = max(width, stack + 1.0 + setback + 2 * WALL)
             key_y = 0.0
         in_y = depth - 2 * WALL
         in_x = width - 2 * WALL
@@ -111,10 +128,11 @@ class Layout:
             h_front=top_k + (-depth / 2 - key_y) * slope,
             h_back=top_k + (depth / 2 - key_y) * slope,
             usb_z=board_top + board.usb_h / 2,
-            board_back=in_y / 2 - setback,
+            board_back=seat.board_back(depth, board) if generic else in_y / 2 - setback,
             bosses=tuple((sx * bx, sy * by) for sx in (-1, 1) for sy in (-1, 1)),
             opt=opt,
             look=look,
+            seat=generic,
         )
         pocket = (board.width + BOARD_FIT) / 2
         if split:  # corner columns at SPLIT_BOSS_INSET from the walls, beside the board pocket

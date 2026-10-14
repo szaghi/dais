@@ -8,6 +8,7 @@ each one can be switched from the command line, and `--legacy` rebuilds the firs
 | Switch plate | **integrated** in the top shell | `separate` (screwed, 4x M2x4) | `--plate` |
 | Case screws | **M3 heat-set inserts** + M3 button heads | `self-tap` (M2 self-tapping, printed pilots) | `--fastener` |
 | Bevel angle | **60 deg** from horizontal | any; 45 = the first prototypes | `--bevel` |
+| Controller seat (split, plinth) | **generic**: rear jaws + screw clamp, any Pro Micro-style board | `pocket` (fitted to the board, the first prototypes) | `--seat` |
 | Skin pattern | none | `fuzzy`, `voronoi`, `facets`, their `-full` versions, `all` (split and plinth designs) | `--pattern` |
 
 ```bash

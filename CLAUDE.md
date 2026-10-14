@@ -54,6 +54,13 @@ is generated too but is what the docs and README display, so re-render after geo
   keeps a ramped plain margin round the USB-C notch. The owner wants the texture continuous round
   every corner and on the back too. CLI variants:
   `--pattern X|all` -> `out/<board>/<design>-<pattern>/` + `options.json`.
+- `seat.py`: generic controller seat of the split family (`Options.seat == "generic"`, default;
+  `LEGACY` keeps the fitted `pocket`): rear jaws + `board-clamp` part (M3 insert, M3x6 from below
+  through a floor slot) with plan-V (`JAW_PLAN`) and leaning (`JAW_LEAN`) faces, so any board in
+  the `SEAT_*` ranges is centred, pushed back and held down; the USB-C opening is one plug-sized
+  window through both shells (the owner rejected the old lip bridge over the receptacle). The
+  clamp travel makes the split family 51.4 deep (`plinth-long` 73.2). `Layout.board_back` comes
+  from the jaws; `Layout.seat` flags it; the tests check the clamp at both travel ends.
 - `designs.py`: `DESIGNS` registry -- `side-cove`, `wrap-cove`, `split`, `split-trapezoid`,
   `plinth`, `plinth-long`. Each `Design` carries a `params.Look` (bezel, key hole, top height above
   the plate, top chamfer, board under|behind the switch) that travels in `Layout.look`; the

@@ -29,6 +29,7 @@ from .params import (
 )
 from .parts import make_bottom
 from .patterns import skin_pattern
+from .seat import rear_jaws
 from .shell import bevel, integrated_plate, key_well, outer_shell, outline, plan_pts, side_x, usb_cuts
 
 
@@ -104,4 +105,7 @@ def make_bottom_case(lay: Layout) -> Part:
             raise ValueError(f"split screw too long: head would stand {fast.head_h - seat:.2f} mm below the floor")
         case -= Pos(x, y, -1) * Cylinder(fast.head_d / 2, seat + 1, align=MIN)
 
+    if lay.seat:  # generic controller seat: the rear jaws the PCB's back corners wedge into
+        jaws, carve = rear_jaws(lay.depth)
+        case = (case + jaws) - carve
     return case - usb_cuts(lay)

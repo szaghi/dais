@@ -68,7 +68,7 @@ def _build_one(board: str, name: str, opt: Options, dirname: str, out: str) -> s
 def options(args: argparse.Namespace) -> Options:
     """Build options from the command line: defaults (or ``--legacy``), then explicit overrides."""
     opt = LEGACY if getattr(args, "legacy", False) else Options()
-    overrides = {k: getattr(args, k, None) for k in ("plate", "fastener", "bevel")}
+    overrides = {k: getattr(args, k, None) for k in ("plate", "fastener", "bevel", "seat")}
     return replace(opt, **{k: v for k, v in overrides.items() if v is not None})
 
 
@@ -214,6 +214,9 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--plate", choices=["integrated", "separate"], help="switch plate (default integrated)")
         p.add_argument("--fastener", choices=sorted(FASTENERS), help="case screws (default insert: M3 heat-set)")
         p.add_argument("--bevel", type=float, help="bed-side chamfer angle from horizontal, deg (default 60)")
+        p.add_argument(
+            "--seat", choices=["generic", "pocket"], help="split controller seat (default generic: jaws + clamp)"
+        )
         p.add_argument("--legacy", action="store_true", help="first-prototype build: separate plate, M2, 45 deg")
 
     p = sub.add_parser("build", help="build, check and export STL + STEP")

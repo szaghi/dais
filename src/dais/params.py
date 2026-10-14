@@ -100,6 +100,25 @@ SPLIT_BOSS_INSET = 2.5  # screw axis from the inner wall (bottom-case columns fu
 SPLIT_FRONT_Z = 2.0  # top case lower edge on the front face, above the case bottom (seam rises TILT)
 TRAP_FRONT_EXTRA = 10.0  # trapezoid plan: front this much wider than the back (sides ~6.4 deg)
 
+# --- Generic controller seat (split and plinth designs) --------------------------------
+# any Pro Micro-style board with a top-mount USB-C: the PCB's back corners wedge into two rear
+# jaws, a front clamp (M3 insert, M3x6 from below, slotted floor) pushes it back into them
+SEAT_LEN = (32.5, 35.5)  # PCB length range (microSAM 34.6, Pro Micro 33.0)
+SEAT_W = (16.8, 20.0)  # PCB width range (microSAM 18.4, Pro Micro 18.0)
+SEAT_PCB_T = (1.0, 1.6)  # PCB thickness range
+SEAT_USB_H = (3.2, 4.0)  # receptacle height above the PCB top
+PIN_ROW_X = 7.62  # Pro Micro pin rows, +-0.3 in from the centre line: solder-joint grooves under them
+JAW_PLAN = 30.0  # jaw/clamp faces in plan, from the board's short edge: corners slide to the centre
+JAW_LEAN = 60.0  # jaw/clamp faces from horizontal, leaning over the PCB: they hold it down
+JAW_SET = 2.9  # rear jaws' reference line in front of the outer back face: microSAM's USB-C 1.5 recessed
+JAW_CAP = 1.0  # the lean stops this far above the mid PCB top (keeps the corner pins clear)
+JAW_H = 3.1  # rear jaws' height above the pocket floor
+CLAMP_LEN = 7.5  # front clamp, along Y: crossbar + the insert column
+CLAMP_H = 6.5  # front clamp height: the M3 insert (5.7) + 0.8
+CLAMP_STEM = 8.0  # width of the insert column
+SLOT_CBORE = 1.4  # floor slot counterbore from below: the M3 button head stays 0.4 inside the feet
+USB_WINDOW_PLAY = 0.3  # USB-C window beyond the plug overmold, per side (the jaws centre the board)
+
 # --- Plinth designs: high top up to the artisan's base line ----------------------------
 # artisan (calipers, 2026-10-14): 19.0 wide in its lower 4-5 mm, resting 4.0 above the 4.0 mm top
 # face, i.e. 8.0 above the plate top; pressed (4 mm travel) its base drops to 4.0 above the plate
@@ -178,13 +197,14 @@ class Options:
     fastener: Literal["insert", "self-tap"] = "insert"
     bevel: float = 60.0  # chamfer angle from horizontal (the bed): 45 = classic; steeper prints cleaner
     pattern: Pattern | None = None  # split top case sides: fuzzy (slicer modifier), voronoi, facets
+    seat: Literal["generic", "pocket"] = "generic"  # split controller seat: jaws + clamp, or the fitted pocket
 
     @property
     def fast(self) -> Fastener:
         return FASTENERS[self.fastener]
 
 
-LEGACY = Options(plate="separate", fastener="self-tap", bevel=45.0)  # the first prototypes
+LEGACY = Options(plate="separate", fastener="self-tap", bevel=45.0, seat="pocket")  # the first prototypes
 
 
 # --- Design looks ------------------------------------------------------------------------

@@ -30,7 +30,7 @@ def test_build_legacy_pattern_variant(tmp_path: Path) -> None:
     assert (variant / "stl" / "plate.stl").exists()  # legacy: separate plate
     assert (variant / "stl" / "modifier-fuzzy-skin.stl").exists()  # the slicer modifier
     opt = json.loads((variant / "options.json").read_text())
-    assert opt == {"plate": "separate", "fastener": "self-tap", "bevel": 45.0, "pattern": "fuzzy"}
+    assert opt == {"plate": "separate", "fastener": "self-tap", "bevel": 45.0, "pattern": "fuzzy", "seat": "pocket"}
 
 
 def test_variants_apply_patterns_to_split_designs_only() -> None:

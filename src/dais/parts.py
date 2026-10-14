@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from build123d import Axis, Box, Cylinder, Part, Pos, Text, extrude, fillet
 
+from . import seat
 from .layout import Layout
 from .params import (
     BOARD_FIT,
@@ -17,6 +18,7 @@ from .params import (
     JOINT_GROOVE_W,
     MAX,
     MIN,
+    PIN_ROW_X,
     PLATE,
     PLATE_RELIEF,
     PLATE_SCREW,
@@ -49,10 +51,17 @@ def make_bottom(lay: Layout, fused: bool = False) -> Part:
     """Bottom plate, flush in the body opening: board seat, screws, feet recesses.
 
     ``fused``: floor of a split bottom case -- overlaps the walls, no screw holes (the case adds its own).
+    With ``lay.seat`` the board seat is the generic one (``seat``): a pocket for any board of the
+    ranges and the clamp's floor slot; the rear jaws belong to the bottom case.
     """
     b = lay.board
     grow = 0.1 if fused else -BOTTOM_FIT
     bottom = Box(lay.in_x + 2 * grow, lay.in_y + 2 * grow, BOTTOM_T, align=MIN)
+    if lay.seat:
+        bottom = _generic_seat(lay, bottom)
+        for y, (x0, x1) in feet_spans(lay):
+            bottom -= Pos((x0 + x1) / 2, y, 0) * Box(x1 - x0 + 0.4, FOOT_W + 0.4, FOOT_RECESS, align=MIN)
+        return bottom
 
     back = lay.board_back
     pocket_l = b.length + BOARD_FIT
@@ -77,6 +86,31 @@ def make_bottom(lay: Layout, fused: bool = False) -> Part:
     return bottom
 
 
+def _generic_seat(lay: Layout, bottom: Part) -> Part:
+    """Floor of the generic seat: pocket from the front to the rear jaws, solder-joint grooves under
+    the Pro Micro pin rows, the clamp screw's slot."""
+    y1 = seat.jaw_y(lay.depth) + 0.5
+    y0 = -lay.in_y / 2 - 1
+    pocket = Pos(0, (y0 + y1) / 2, BOTTOM_T - POCKET_D) * Box(2 * seat.POCKET_HALF, y1 - y0, POCKET_D + 1, align=MIN)
+    bottom -= pocket
+    for sx in (-1, 1):
+        bottom -= Pos(sx * PIN_ROW_X, (y0 + y1) / 2, BOTTOM_T - POCKET_D - JOINT_GROOVE_D) * Box(
+            JOINT_GROOVE_W, y1 - y0, JOINT_GROOVE_D + 0.01, align=MIN
+        )
+    return bottom - seat.floor_slot(lay.depth)
+
+
+def feet_spans(lay: Layout) -> list[tuple[float, tuple[float, float]]]:
+    """(centre line y, (x0, x1)) of every foot strip; with the generic seat the front strip is
+    split in two round the clamp screw's counterbore."""
+    half = foot_len(lay) / 2
+    front, back = feet_y(lay)
+    if not lay.seat:
+        return [(front, (-half, half)), (back, (-half, half))]
+    gap = (lay.opt.fast.head_d + 0.2) / 2 + 1.0
+    return [(front, (-half, -gap)), (front, (gap, half)), (back, (-half, half))]
+
+
 def feet_y(lay: Layout) -> tuple[float, float]:
     """Centre lines of the two feet strips."""
     y = lay.in_y / 2 - BOTTOM_FIT - FOOT_INSET
@@ -89,12 +123,13 @@ def foot_len(lay: Layout) -> float:
 
 
 def make_feet(lay: Layout) -> Part:
-    """Two TPU strips, in their installed position."""
+    """The TPU strips, in their installed position."""
     feet = Part()
-    for y in feet_y(lay):
-        strip = Box(foot_len(lay), FOOT_W, FOOT_T, align=MIN)
-        strip = fillet(strip.edges().filter_by(Axis.Z), radius=FOOT_W / 2 - 0.01)
-        feet += Pos(0, y, FOOT_RECESS - FOOT_T) * strip
+    for y, (x0, x1) in feet_spans(lay):
+        strip = Box(x1 - x0, FOOT_W, FOOT_T, align=MIN)
+        r = min(FOOT_W, x1 - x0) / 2 - 0.01
+        strip = fillet(strip.edges().filter_by(Axis.Z), radius=r)
+        feet += Pos((x0 + x1) / 2, y, FOOT_RECESS - FOOT_T) * strip
     return feet
 
 

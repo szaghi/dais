@@ -8,10 +8,10 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from build123d import Box, Cylinder, Part, Pos, Vector
+from build123d import Align, Box, Cylinder, Part, Pos, Vector
 from conftest import BOARD, Built, build_all
 
-from dais import params
+from dais import params, seat
 from dais.designs import DESIGNS, check
 from dais.display import make_keycap
 from dais.layout import Layout, between
@@ -23,7 +23,6 @@ from dais.params import (
     MIN_WALL,
     PATTERNS,
     PLATE_RELIEF,
-    PLUG_W,
     REBATE_H,
     RIM_WALL,
     SW_CUT,
@@ -33,7 +32,7 @@ from dais.params import (
     Options,
 )
 from dais.parts import make_coupon
-from dais.patterns import MAKERS, fuzzy_modifier, notch_top, skin_pattern
+from dais.patterns import MAKERS, fuzzy_modifier, notch_top, notch_width, skin_pattern
 from dais.shell import outline
 from dais.split import split_bosses
 
@@ -144,7 +143,9 @@ def test_fuzzy_is_a_slicer_modifier_only(full: bool) -> None:
 def _notch_zone(lay: Layout) -> Part:
     """The USB-C plug notch grown by USB_KEEPOUT - 0.1, in the back wall (not the air outside it)."""
     m = USB_KEEPOUT - 0.1
-    return Pos(0, lay.depth / 2 - WALL / 2, -1) * Box(PLUG_W + 2 * m, WALL, notch_top(lay) + m + 1, align=params.MIN)
+    return Pos(0, lay.depth / 2 - WALL / 2, -1) * Box(
+        notch_width(lay) + 2 * m, WALL, notch_top(lay) + m + 1, align=params.MIN
+    )
 
 
 @pytest.mark.parametrize("pattern", ["voronoi-full", "facets-full"])
@@ -216,6 +217,58 @@ def test_check_rejects_a_clash() -> None:
 def test_layout_rejects_a_board_too_wide() -> None:
     with pytest.raises(ValueError, match="too wide"):
         Layout.for_board(replace(BOARDS["microsam"], width=40.0))
+
+
+SEAT_EXTREMES = [  # (length, width, PCB thickness): the clamp's two travel ends and the microSAM
+    (params.SEAT_LEN[1], params.SEAT_W[1], params.SEAT_PCB_T[1]),
+    (params.SEAT_LEN[0], params.SEAT_W[0], params.SEAT_PCB_T[0]),
+    (34.6, 18.4, 1.6),
+]
+
+
+def _pcb(lay: Layout, board: params.Board) -> Part:
+    """The PCB envelope where the seat puts ``board``."""
+    back = seat.board_back(lay.depth, board)
+    return Pos(0, back - board.length / 2, seat.Z0) * Box(board.width, board.length, board.pcb_t, align=params.MIN)
+
+
+@pytest.mark.parametrize("dims", SEAT_EXTREMES)
+@pytest.mark.parametrize("name", SPLIT_DESIGNS)
+def test_generic_seat_holds_every_board(built: Built, name: str, dims: tuple[float, float, float]) -> None:
+    """Over the whole range: the PCB touches the rear jaws and the clamp without overlapping
+    anything, the clamp clears both shells and the clamp screw lands inside the floor slot."""
+    lay, parts = built[name]
+    board = replace(lay.board, length=dims[0], width=dims[1], pcb_t=dims[2])
+    pcb, clamp = _pcb(lay, board), seat.make_clamp(lay.depth, board)
+    for part in (parts["bottom-case"], parts["top-case"]):
+        assert (pcb & part).volume < 1e-3 and (clamp & part).volume < 1e-3
+    assert (pcb & clamp).volume < 1e-3
+    assert pcb.distance_to(clamp) < 0.02  # the clamp's horns touch the front corners...
+    jaws, _ = seat.rear_jaws(lay.depth)
+    assert pcb.distance_to(jaws) < 0.02  # ...and push the back corners into the jaws
+    y = seat.clamp_y(lay.depth, board) - seat.CLAMP_SCREW
+    screw = Pos(0, y, -1) * Cylinder(1.5, params.BOTTOM_T + 2, align=params.MIN)
+    assert (screw & parts["bottom-case"]).volume < 1e-3  # the M3 passes through the slot
+
+
+@pytest.mark.parametrize("name", SPLIT_DESIGNS)
+def test_usb_window_clears_the_plug_and_has_no_bridge(built: Built, name: str) -> None:
+    """The plug overmold, round the lowest and the highest receptacle of the range, passes through
+    the back wall from the nearest receptacle face: no material of either shell in the way."""
+    lay, parts = built[name]
+    lo, hi = seat.window_z()
+    w = 2 * seat.window_half_width() - 0.1
+    plug = Pos(0, lay.depth / 2 - params.WALL - 0.5, lo + 0.05) * Box(
+        w, params.WALL + 2, hi - lo - 0.1, align=(Align.CENTER, Align.MIN, Align.MIN)
+    )
+    for part in ("bottom-case", "top-case"):
+        assert (plug & parts[part]).volume < 1e-3, part
+
+
+def test_split_layout_rejects_a_board_outside_the_seat() -> None:
+    with pytest.raises(ValueError, match="outside the split seat"):
+        Layout.for_board(BOARDS["rp2040zero"], split=True)
+    Layout.for_board(BOARDS["rp2040zero"], split=True, opt=Options(seat="pocket"))  # the fitted pocket takes it
 
 
 if __name__ == "__main__":
