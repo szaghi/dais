@@ -65,7 +65,7 @@ The full documentation is published at **https://szaghi.github.io/dais/** (ViteP
 `docs/`; `make docs-dev` to browse them locally):
 
 - [About](docs/guide/index.md) -- design language, hardware, repository layout
-- [Designs](docs/designs/index.md) -- the four variants, with every view
+- [Designs](docs/designs/index.md) -- the six variants, with every view
 - [Printing](docs/guide/printing.md), [Assembly](docs/guide/assembly.md) (BOM, wiring),
   [Firmware](docs/guide/firmware.md)
 - [Parameters](docs/guide/parameters.md), [Architecture](docs/guide/architecture.md),

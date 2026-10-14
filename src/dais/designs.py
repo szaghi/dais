@@ -7,13 +7,13 @@ Each design builds a complete, self-contained part set in assembly position; the
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from build123d import Part
 
 from .layout import Layout
 from .one_piece import Cove, make_body
-from .params import BOARDS, TRAP_FRONT_EXTRA, Options
+from .params import BOARDS, PLINTH, PLINTH_LONG, TRAP_FRONT_EXTRA, Look, Options
 from .parts import make_bottom, make_feet, make_plate
 from .split import make_bottom_case, make_top_case
 
@@ -27,10 +27,11 @@ class Design:
     summary: str
     front_extra: float  # 0: rectangular plan; > 0: trapezoid, front wider than the back
     parts: Callable[[Layout], dict[str, Part]]
+    look: Look = field(default_factory=Look)  # top-side proportions
 
     def layout(self, board: str, opt: Options | None = None) -> Layout:
         """Layout of this design for ``board`` built with ``opt`` (default: ``Options()``)."""
-        return Layout.for_board(BOARDS[board], front_extra=self.front_extra, opt=opt)
+        return Layout.for_board(BOARDS[board], self.front_extra, opt, self.look, split=self.split)
 
     @property
     def split(self) -> bool:
@@ -95,6 +96,24 @@ DESIGNS: dict[str, Design] = {
             "the split case with a front 10 mm wider than the back",
             TRAP_FRONT_EXTRA,
             _split,
+        ),
+        Design(
+            "plinth",
+            "Plinth",
+            "the split case with a high top up to the keycap's base line, a wider key hole, slim bezels"
+            " and a large top chamfer: the switch disappears, the artisan sits on the case",
+            0.0,
+            _split,
+            PLINTH,
+        ),
+        Design(
+            "plinth-long",
+            "Plinth, board behind the switch",
+            "the plinth with the board moved from under the switch to behind it: the plate drops"
+            " by the board stack, the key moves forward, the case gets deeper",
+            0.0,
+            _split,
+            PLINTH_LONG,
         ),
     )
 }

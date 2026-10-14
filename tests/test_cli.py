@@ -35,7 +35,8 @@ def test_build_legacy_pattern_variant(tmp_path: Path) -> None:
 
 def test_variants_apply_patterns_to_split_designs_only() -> None:
     names = [d for _, _, d in variants(list(DESIGNS), Options(), [None, "facets"])]
-    assert names == ["side-cove", "wrap-cove", "split", "split-trapezoid", "split-facets", "split-trapezoid-facets"]
+    split = ["split", "split-trapezoid", "plinth", "plinth-long"]
+    assert names == ["side-cove", "wrap-cove", *split, *(f"{n}-facets" for n in split)]
 
 
 def test_list(capsys: pytest.CaptureFixture[str]) -> None:

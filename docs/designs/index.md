@@ -1,6 +1,6 @@
 # The designs
 
-Four variants of the same miniature keyboard. All share the 7 deg wedge, the sunken 1U well,
+Six variants of the same miniature keyboard. All share the 7 deg wedge, the sunken 1U well,
 the edge breaks, the switch plate, the board seat and the feet; they differ in how the sides
 are sculpted and how the case comes apart.
 
@@ -10,8 +10,10 @@ are sculpted and how the case comes apart.
 | [Wrap cove](./wrap-cove) | body + flush bottom plate | one cove along front, corners and sides | 43.6 x 44.8 mm | 4x M3x6 |
 | [Split case](./split) | top case + inset bottom case | the seam (+ optional skin pattern) | 43.6 x 44.8 mm | 4x M3x8 |
 | [Split, trapezoidal](./split-trapezoid) | top case + inset bottom case | as the split case | front 53.6, back 43.6 x 44.8 mm | 4x M3x8 |
+| [Plinth](./plinth) | as the split case | as the split case; high top up to the keycap base | 39.2 x 44.8 mm | 4x M3x8 |
+| [Plinth, board behind](./plinth-long) | as the split case | as the plinth; board behind the switch | 39.2 x 66.0 mm | 4x M3x8 |
 
-All four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet; the switch plate
+The first four: height 19.7 mm at the front, 25.2 mm at the back, +0.8 mm of feet (the plinths: see their pages); all six: the switch plate
 built into the top shell, M3 heat-set inserts, 60 deg bevels -- see [Options and patterns](./options).
 
 ## Side by side
@@ -21,6 +23,8 @@ built into the top shell, M3 heat-set inserts, 60 deg bevels -- see [Options and
   ['wrap-cove/hero', 'Wrap cove', './wrap-cove'],
   ['split/hero', 'Split case', './split'],
   ['split-trapezoid/hero', 'Split case, trapezoidal plan', './split-trapezoid'],
+  ['plinth/hero', 'Plinth', './plinth'],
+  ['plinth-long/hero', 'Plinth, board behind the switch', './plinth-long'],
 ]" />
 
 ## One-piece or split?

@@ -13,7 +13,7 @@ hero:
       text: Quick start
       link: /guide/quick-start
     - theme: alt
-      text: The four designs
+      text: The designs
       link: /designs/
     - theme: alt
       text: Printing
@@ -26,8 +26,8 @@ features:
     link: /guide/
     linkText: Design language
   - icon: 🧩
-    title: Four designs, one code base
-    details: Two one-piece wedges sculpted by a ball-cutter cove, and a split case -- rectangular or trapezoidal -- whose seam is the only feature. Every design exports a complete, self-contained part set.
+    title: Six designs, one code base
+    details: Two one-piece wedges sculpted by a ball-cutter cove, a split case -- rectangular or trapezoidal -- whose seam is the only feature, and two plinths whose top rises to the keycap's base. Every design exports a complete, self-contained part set.
     link: /designs/
     linkText: Compare them
   - icon: 📐

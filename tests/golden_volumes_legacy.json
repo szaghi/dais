@@ -15,5 +15,13 @@
  "split-trapezoid/bottom-case": 7408.741406738443,
  "split-trapezoid/plate": 852.7133014337585,
  "split-trapezoid/feet": 381.7121069506028,
+ "plinth/top-case": 16260.689152334136,
+ "plinth/bottom-case": 5784.684378565219,
+ "plinth/plate": 839.4641260514795,
+ "plinth/feet": 307.79210695060283,
+ "plinth-long/top-case": 22759.785166722737,
+ "plinth-long/bottom-case": 9406.352064797116,
+ "plinth-long/plate": 803.2999181454787,
+ "plinth-long/feet": 307.79210695060283,
  "coupon": 1924.8867499287917
 }

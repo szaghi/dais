@@ -39,7 +39,7 @@ seat and feet.
 
 | Path | Content |
 |---|---|
-| `src/dais/` | the parametric case: parameters, layout, the four designs, checks, CLI, renderer |
+| `src/dais/` | the parametric case: parameters, layout, the designs, checks, CLI, renderer |
 | `tests/` | geometric acceptance tests and the golden-volume regression guard |
 | `firmware/keymaps/enter/` | the QMK keymap, copied into a QMK checkout to build |
 | `docs/` | this documentation (VitePress); `docs/public/img/` holds the rendered views |

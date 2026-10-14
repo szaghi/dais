@@ -8,7 +8,7 @@ each one can be switched from the command line, and `--legacy` rebuilds the firs
 | Switch plate | **integrated** in the top shell | `separate` (screwed, 4x M2x4) | `--plate` |
 | Case screws | **M3 heat-set inserts** + M3 button heads | `self-tap` (M2 self-tapping, printed pilots) | `--fastener` |
 | Bevel angle | **60 deg** from horizontal | any; 45 = the first prototypes | `--bevel` |
-| Skin pattern | none | `fuzzy`, `voronoi`, `facets`, their `-full` versions, `all` (split designs) | `--pattern` |
+| Skin pattern | none | `fuzzy`, `voronoi`, `facets`, their `-full` versions, `all` (split and plinth designs) | `--pattern` |
 
 ```bash
 dais build                                  # defaults -> out/microsam/<design>/
@@ -64,9 +64,10 @@ different defect: brim, enclosure, bed temperature.
 
 ## Skin patterns
 
-Optional textures for the front and both sides of the split top case; the back, with the
-USB-C, stays plain. Each covers a band parallel to the top, from just above the rebate to just
-under the top bevel.
+Optional textures for the top case of the split and plinth designs. The band versions cover
+the front and both sides -- the back, with the USB-C, stays plain -- in a band parallel to the
+top, from just above the rebate to just under the top bevel; the
+[full-side versions](#full-side-versions) cover all four walls.
 
 ### fuzzy -- fuzzy skin, done by the slicer
 
@@ -90,18 +91,20 @@ tile edges flush with the wall: the low-poly look of 3D wall panels.
 
 ### Full-side versions
 
-`fuzzy-full`, `voronoi-full` and `facets-full` cover the **whole front and sides as one
-continuous skin**: from the rim round at the seam up to the top bevel line, and **round the two
-front corners** -- the texture is generated on the unrolled strip (left side, front-left round,
-front, front-right round, right side) and wrapped back onto it, each R3 corner as six flat chords
-(0.03 mm off the true arc), so cells and tiles flow across the corners without a break. The back
-corners and the back stay plain (USB-C). The lower part of that area lies over the rebate, where the top case wall is only 1.8 mm
-thick, so the relief depth is capped there to leave at least 1 mm of wall (`MIN_WALL`): the
-voronoi grooves fit as they are, the facets tiles that cross the rebate are made shallower. The
-tests check the remaining wall for every pattern.
+`fuzzy-full`, `voronoi-full` and `facets-full` cover **all four walls as one continuous skin**:
+from the rim round at the seam up to the top bevel line, and **round all four corners**. The
+texture is generated on the unrolled loop (front, right side, back, left side, with each R3
+corner as six flat chords, 0.03 mm off the true arc) and wrapped back onto it. It is periodic
+along the loop -- the voronoi seeds wrap round, the facets tiles divide the loop length exactly
+-- so it closes on itself without a seam. On the back it stays clear of the USB-C plug notch by
+1.5 mm (`USB_KEEPOUT`); the plain margin's top ramps into the wall, so it prints top down
+without a ledge. The lower part of the area lies over the rebate, where the top case wall is
+only 1.8 mm thick, so the relief depth is capped there to leave at least 1 mm of wall
+(`MIN_WALL`): the voronoi grooves fit as they are, the facets tiles that cross the rebate are
+made shallower. The tests check the remaining wall for every pattern.
 
 ```bash
-dais build --pattern facets-full            # -> out/microsam/split-facets-full/, split-trapezoid-facets-full/
+dais build --pattern facets-full            # -> out/microsam/{split,split-trapezoid,plinth,plinth-long}-facets-full/
 dais build --pattern all --design split     # all six: band and full versions
 ```
 

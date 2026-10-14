@@ -1,12 +1,16 @@
 """Skin patterns for the sides of the split top case: fuzzy skin, voronoi leather, facets.
 
-``fuzzy`` changes no geometry: it exports a modifier volume -- a thin shell inside the front and
-side walls -- for the slicer's fuzzy-skin setting, so the texture stays off the top face, the
-bevels, the seam and the back. ``voronoi`` and ``facets`` are cutters, built face by face in a
-local frame (x along the face, y = world up, z = outward normal, surface at z = 0) and clipped to
-a band parallel to the top. The top case prints top face down, so every relief face turned
-toward the bed stays within PATTERN_MAX_UP (about 33 deg from the wall, 40 deg with the 7 deg
-print tilt), and the band's lower edge ramps out at PATTERN_RAMP. The back face (USB-C) stays plain.
+``fuzzy`` changes no geometry: it exports a modifier volume -- a thin shell inside the walls --
+for the slicer's fuzzy-skin setting, so the texture stays off the top face, the bevels and the
+seam. ``voronoi`` and ``facets`` are cutters, built in a local frame (x along the wall, y = world
+up, z = outward normal, surface at z = 0) and clipped to a band parallel to the top. The top case
+prints top face down, so every relief face turned toward the bed stays within PATTERN_MAX_UP
+(about 33 deg from the wall, 40 deg with the 7 deg print tilt), and the band's lower edge ramps
+out at PATTERN_RAMP.
+
+The band versions cover the front and side faces; the back (USB-C) stays plain. The ``-full``
+versions cover the whole height of all four walls as one closed loop round the four corners,
+clear of the USB-C plug notch by USB_KEEPOUT.
 """
 
 from __future__ import annotations
@@ -46,20 +50,22 @@ from .params import (
     PATTERN_RAMP,
     PATTERN_SEED,
     PATTERN_TOP,
+    PLUG_H,
+    PLUG_W,
     R_CORNER,
     REBATE_H,
     RIM_R,
     RIM_WALL,
     SPLIT_FRONT_Z,
     TILT,
-    TOP_EDGE,
+    USB_KEEPOUT,
     VORONOI_CELL,
     VORONOI_DEPTH,
     VORONOI_DRAFT,
     VORONOI_GROOVE,
     Pattern,
 )
-from .shell import outer_shell, outline, plan_pts
+from .shell import outer_shell, outline, plan_pts, top_edge
 
 BIG = 400.0
 ABOVE = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -85,9 +91,9 @@ class _Face:
         self._c, self._u = Vector(c.X, c.Y, 0), u
         top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)  # parting plane -> top face
         if full:  # the whole flat side: from the rim round's tangent line to the top bevel line
-            self.h0, self.h1 = RIM_R + FULL_MARGIN, top - TOP_EDGE - FULL_MARGIN
+            self.h0, self.h1 = RIM_R + FULL_MARGIN, top - top_edge(lay) - FULL_MARGIN
         else:  # a band above the rebate (full wall thickness behind it)
-            self.h0, self.h1 = REBATE_H + PATTERN_BOTTOM, top - TOP_EDGE - PATTERN_TOP
+            self.h0, self.h1 = REBATE_H + PATTERN_BOTTOM, top - top_edge(lay) - PATTERN_TOP
 
     def h_at(self, x: float, y: float) -> float:
         """Parting-frame height of the local face point (x, y)."""
@@ -330,8 +336,8 @@ def _rebate_depth_ratio(
 
 
 class _Seg:
-    """One flat piece of the unrolled front strip (a face, or a chord of a front corner round):
-    local frame x along the strip (travel direction), y = world up, z = outward normal."""
+    """One flat piece of the unrolled wall loop (a face, or a chord of a corner round):
+    local frame x along the loop (travel direction), y = world up, z = outward normal."""
 
     def __init__(self, lay: Layout, p0: Pt, p1: Pt, u0: float) -> None:
         t = math.radians(TILT)
@@ -353,7 +359,7 @@ class _Seg:
         return (self.p0 + self.t * x - self._P0).dot(self._nrm) + y * self._nrm.Z
 
     def local(self, u: float, s: float, h0: float, z: float = 0.0) -> Vector:
-        """Unrolled strip point (u along, s above the band's lower edge, z out) -> local frame."""
+        """Unrolled loop point (u along, s above the band's lower edge, z out) -> local frame."""
         x = u - self.u0
         return Vector(x, self.y_at(x, h0) + s, z)
 
@@ -363,30 +369,31 @@ class _Seg:
 
 
 class _Strip:
-    """Front strip unrolled: left side, front-left corner round, front, front-right round, right
-    side. The rounds are split into CORNER_CHORDS flat chords (R3: 0.03 mm off the true arc)."""
+    """The four walls unrolled into one closed loop: from the front-left round, the front, the
+    right side, the back and the left side, each R_CORNER round split into CORNER_CHORDS flat
+    chords (R3: 0.03 mm off the true arc). ``u`` runs from 0 to ``W``, where it closes on itself:
+    a texture periodic in ``u`` has no seam."""
 
     CORNER_CHORDS = 6
 
     def __init__(self, lay: Layout) -> None:
         t = math.radians(TILT)
         top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)
-        self.h0, self.h1 = RIM_R + FULL_MARGIN, top - TOP_EDGE - FULL_MARGIN
+        self.h0, self.h1 = RIM_R + FULL_MARGIN, top - top_edge(lay) - FULL_MARGIN
         self.H = (self.h1 - self.h0) / math.cos(t)
-        v0, v1, v2, v3 = plan_pts(lay, 0.0)  # CCW: front-left, front-right, back-right, back-left
-        path = [self._tangent_out(v2, v3, v0)]  # left side starts at the back-left round
-        path += self._round(v3, v0, v1) + self._round(v0, v1, v2)
-        path.append(self._tangent_in(v1, v2, v3))  # right side ends at the back-right round
+        v = plan_pts(lay, 0.0)  # CCW: front-left, front-right, back-right, back-left
+        path = [q for i in range(4) for q in self._round(v[i - 1], v[i], v[(i + 1) % 4])]
+        path.append(path[0])  # the straight walls join consecutive rounds; the last one closes the loop
         self.segs, u = [], 0.0
         for a, b in itertools.pairwise(path):
             seg = _Seg(lay, a, b, u)
             self.segs.append(seg)
             u += seg.L
-        self.ua, self.ub = FULL_MARGIN, u - FULL_MARGIN
+        self.W = u
 
     @staticmethod
-    def _fillet(prev: Pt, v: Pt, nxt: Pt) -> tuple[Pt, Pt, Pt, float, float]:
-        """R_CORNER round at ``v``: tangent points, centre and start/end angles."""
+    def _fillet(prev: Pt, v: Pt, nxt: Pt) -> tuple[Pt, float, float]:
+        """R_CORNER round at ``v``: centre and start/end angles."""
         a = Vector(v[0] - prev[0], v[1] - prev[1], 0).normalized()
         b = Vector(nxt[0] - v[0], nxt[1] - v[1], 0).normalized()
         theta = math.acos(max(-1.0, min(1.0, (-a).dot(b))))  # interior angle
@@ -397,26 +404,20 @@ class _Strip:
         f1, f2 = math.atan2(t1[1] - c[1], t1[0] - c[0]), math.atan2(t2[1] - c[1], t2[0] - c[0])
         if f2 < f1:
             f2 += 2 * math.pi  # CCW outline: the round turns counter-clockwise
-        return t1, t2, c, f1, f2
+        return c, f1, f2
 
     def _round(self, prev: Pt, v: Pt, nxt: Pt) -> list[Pt]:
-        _, _, c, f1, f2 = self._fillet(prev, v, nxt)
+        c, f1, f2 = self._fillet(prev, v, nxt)
         n = self.CORNER_CHORDS
         return [
             (c[0] + R_CORNER * math.cos(f1 + (f2 - f1) * i / n), c[1] + R_CORNER * math.sin(f1 + (f2 - f1) * i / n))
             for i in range(n + 1)
         ]
 
-    def _tangent_out(self, prev: Pt, v: Pt, nxt: Pt) -> Pt:
-        return self._fillet(prev, v, nxt)[1]
-
-    def _tangent_in(self, prev: Pt, v: Pt, nxt: Pt) -> Pt:
-        return self._fillet(prev, v, nxt)[0]
-
     def clip(self, i: int) -> Part:
         """Segment ``i``'s share of the band: ramped lower edge, upper edge, and its two ends --
-        the bisector planes with its neighbours (pieces meet exactly), or the strip ends."""
-        seg = self.segs[i]
+        the bisector planes with its neighbours round the loop, so the pieces meet exactly."""
+        seg, n = self.segs[i], len(self.segs)
         c0, c1 = seg.y_at(0.0, self.h0), seg.y_at(0.0, self.h1)
         k0, k1 = seg.y_at(1.0, self.h0) - c0, seg.y_at(1.0, self.h1) - c1
         a = math.radians(PATTERN_RAMP)
@@ -425,15 +426,10 @@ class _Strip:
         region &= Location(Plane(origin=(0, c1, 0), z_dir=Vector(-k1, 1, 0).normalized())) * Box(
             BIG, BIG, BIG, align=BELOW
         )
-        if i == 0:
-            start = Location(Plane(origin=(self.ua - seg.u0, 0, 0), z_dir=(1, 0, 0)))
-        else:
-            start = Location(Plane(origin=(0, 0, 0), z_dir=seg.to_local((self.segs[i - 1].t + seg.t).normalized())))
+        start = Location(Plane(origin=(0, 0, 0), z_dir=seg.to_local((self.segs[i - 1].t + seg.t).normalized())))
         region &= start * Box(BIG, BIG, BIG, align=ABOVE)
-        if i == len(self.segs) - 1:
-            end = Location(Plane(origin=(self.ub - seg.u0, 0, 0), z_dir=(1, 0, 0)))
-        else:
-            end = Location(Plane(origin=(seg.L, 0, 0), z_dir=seg.to_local((seg.t + self.segs[i + 1].t).normalized())))
+        end_n = seg.to_local((seg.t + self.segs[(i + 1) % n].t).normalized())
+        end = Location(Plane(origin=(seg.L, 0, 0), z_dir=end_n))
         return region & (end * Box(BIG, BIG, BIG, align=BELOW))
 
     def near(self, i: int, umin: float, umax: float, pad: float = 1.0) -> bool:
@@ -441,18 +437,25 @@ class _Strip:
         return umax >= seg.u0 - pad and umin <= seg.u0 + seg.L + pad
 
 
+def _periodic_dist(p: Pt, q: Pt, w: float) -> float:
+    """Distance on the loop: ``u`` wraps at ``w``."""
+    du = abs(p[0] - q[0]) % w
+    return math.hypot(min(du, w - du), p[1] - q[1])
+
+
 def _voronoi_full(lay: Layout) -> Part:
-    """``voronoi`` over the whole front strip, continuous round the front corners."""
+    """``voronoi`` round all four walls: the seed set is periodic in ``u``, so the cells close the
+    loop without a seam."""
     strip = _Strip(lay)
-    w, h = strip.ub - strip.ua, strip.H
+    w, h = strip.W, strip.H
     rng = random.Random(PATTERN_SEED * 1000 + round(w))
     pts: list[Pt] = []
-    for _ in range(15000):
+    for _ in range(12000):
         q = (rng.uniform(0, w), rng.uniform(0, h))
-        if all(math.dist(q, o) > 0.8 * VORONOI_CELL for o in pts):
+        if all(_periodic_dist(q, o, w) > 0.8 * VORONOI_CELL for o in pts):
             pts.append(q)
-    mirrored = pts + [(-x, y) for x, y in pts] + [(2 * w - x, y) for x, y in pts]
-    mirrored += [(x, -y) for x, y in pts] + [(x, 2 * h - y) for x, y in pts]
+    ring = pts + [(x - w, y) for x, y in pts] + [(x + w, y) for x, y in pts]  # periodic copies along u
+    mirrored = ring + [(x, -y) for x, y in ring] + [(x, 2 * h - y) for x, y in ring]  # bounded in s
     vor = Voronoi(np.array(mirrored))
     run = (VORONOI_DEPTH + 0.02) * math.tan(math.radians(VORONOI_DRAFT))
     cells = []
@@ -462,11 +465,16 @@ def _voronoi_full(lay: Layout) -> Part:
             continue
         cell = [tuple(vor.vertices[v]) for v in region]
         cell.sort(key=lambda q: math.atan2(q[1] - py, q[0] - px))
-        top = _inset([(x + strip.ua, y) for x, y in cell], VORONOI_GROOVE / 2)
+        top = _inset(cell, VORONOI_GROOVE / 2)
         if top is None or len(top := _dedupe(top)) < 3:
             continue
         foot = _miter(top, run)
-        cells.append((top, foot, min(q[0] for q in foot), max(q[0] for q in foot)))
+        umin, umax = min(q[0] for q in foot), max(q[0] for q in foot)
+        cells.append((top, foot, umin, umax))
+        for shift in (w if umin < 0 else None, -w if umax > w else None):  # the copy across the loop's ends
+            if shift is not None:
+                moved = ([(x + shift, y) for x, y in top], [(x + shift, y) for x, y in foot])
+                cells.append((*moved, umin + shift, umax + shift))
     cut = Part()
     for i, seg in enumerate(strip.segs):
         pads = []
@@ -489,9 +497,9 @@ def _voronoi_full(lay: Layout) -> Part:
 
 
 def _facets_full(lay: Layout) -> Part:
-    """``facets`` over the whole front strip, tiles continuing round the front corners."""
+    """``facets`` round all four walls: a whole number of tiles along the loop, so they close it."""
     strip = _Strip(lay)
-    w = strip.ub - strip.ua
+    w = strip.W
     nx, ny = max(1, round(w / FACET_TILE)), max(1, round(strip.H / FACET_TILE))
     tw, th = w / nx, strip.H / ny
     rng = random.Random(PATTERN_SEED * 1000 + round(w) + 1)
@@ -508,7 +516,7 @@ def _facets_full(lay: Layout) -> Part:
 
     for j in range(ny):
         for i in range(nx):
-            u, y = strip.ua + i * tw, j * th
+            u, y = i * tw, j * th
             corners = [(u, y), (u + tw, y), (u + tw, y + th), (u, y + th)]
             segs = [k for k in range(len(strip.segs)) if strip.near(k, u, u + tw, pad=0.0)]
             depth = rng.uniform(*FACET_DEPTH)
@@ -539,6 +547,24 @@ def _facets_full(lay: Layout) -> Part:
     return cut
 
 
+def notch_top(lay: Layout) -> float:
+    """World height of the USB-C plug notch's top (``shell.usb_cuts``)."""
+    return lay.usb_z + PLUG_H / 2 + 0.3
+
+
+def _usb_keepout(lay: Layout) -> Part:
+    """Wall kept plain round the USB-C plug notch, USB_KEEPOUT wide: vertical sides, and a top that
+    ramps into the wall at PATTERN_RAMP like the band's lower edge (printed top down, a flat
+    ceiling over the relief would overhang)."""
+    d, z = lay.depth / 2, notch_top(lay) + USB_KEEPOUT
+    a = math.radians(PATTERN_RAMP)
+    ramp = Location(Plane(origin=(0, d, z), z_dir=Vector(0, math.tan(a), 1).normalized())) * Box(
+        BIG, BIG, BIG, align=BELOW
+    )
+    zone = Pos(0, d - 6, 0) * Box(PLUG_W + 2 * USB_KEEPOUT, 20, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER))
+    return ramp & zone
+
+
 MAKERS = {"voronoi": _voronoi, "facets": _facets}
 FULL_MAKERS = {"voronoi": _voronoi_full, "facets": _facets_full}
 
@@ -549,12 +575,13 @@ def is_full(pattern: Pattern) -> bool:
 
 
 def skin_pattern(lay: Layout, pattern: Pattern) -> Part | None:
-    """The cutter of ``pattern`` over the front and side faces of the top case (None for fuzzy)."""
+    """The cutter of ``pattern`` on the top case walls (None for fuzzy): front and sides for the
+    band versions, all four walls for ``-full``."""
     base = pattern.removesuffix("-full")
     if base not in MAKERS:
         return None
-    if is_full(pattern):  # one continuous strip: front, sides and the front corner rounds
-        return FULL_MAKERS[base](lay)
+    if is_full(pattern):  # one closed loop round the four walls, clear of the USB-C notch
+        return FULL_MAKERS[base](lay) - _usb_keepout(lay)
     cut = Part()
     for face in _faces(lay):
         cut += face.loc * (MAKERS[base](face) & face.clip())
@@ -562,15 +589,19 @@ def skin_pattern(lay: Layout, pattern: Pattern) -> Part | None:
 
 
 def fuzzy_modifier(lay: Layout, full: bool = False) -> Part:
-    """Slicer modifier for ``fuzzy``: a FUZZY_SKIN-thick shell inside the front and side walls of the
-    top case, between the rebate and the top bevel, clear of the back (USB-C). Load it as a modifier
-    with fuzzy skin on: only the perimeters it encloses get fuzzed."""
+    """Slicer modifier for ``fuzzy``: a FUZZY_SKIN-thick shell inside the top case walls, below the
+    top bevel -- front and sides above the rebate, or (``full``) all four walls from the rim round,
+    clear of the USB-C notch. Load it as a modifier with fuzzy skin on: only the perimeters it
+    encloses get fuzzed."""
     t = math.radians(TILT)
     top = (lay.h_front - SPLIT_FRONT_Z) * math.cos(t)
     skin = outline(lay, -0.5) - outline(lay, FUZZY_SKIN)
-    if full:  # the whole flat side, rim round to top bevel
-        band = between(lay, RIM_R + 0.2, top - TOP_EDGE - 0.2)
-    else:
-        band = between(lay, REBATE_H + 0.3, top - TOP_EDGE - 0.4)
+    edge = top_edge(lay)
+    if full:
+        notch = Pos(0, lay.depth / 2 - 6, -1) * Box(
+            PLUG_W + 2 * USB_KEEPOUT, 20, notch_top(lay) + USB_KEEPOUT + 1, align=(Align.CENTER, Align.MIN, Align.MIN)
+        )
+        return (skin & between(lay, RIM_R + 0.2, top - edge - 0.2)) - notch
+    band = between(lay, REBATE_H + 0.3, top - edge - 0.4)
     back = Pos(0, lay.depth / 2 - R_CORNER - 0.5, 0) * Box(BIG, BIG, BIG, align=(Align.CENTER, Align.MIN, Align.CENTER))
     return (skin & band) - back

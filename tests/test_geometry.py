@@ -16,21 +16,24 @@ from dais.designs import DESIGNS, check
 from dais.display import make_keycap
 from dais.layout import Layout, between
 from dais.params import (
+    ARTISAN_TOP,
     BOARDS,
     FUNNEL_BOTTOM,
     LEGACY,
     MIN_WALL,
     PATTERNS,
     PLATE_RELIEF,
+    PLUG_W,
     REBATE_H,
     RIM_WALL,
     SW_CUT,
     TILT,
+    USB_KEEPOUT,
     WALL,
     Options,
 )
 from dais.parts import make_coupon
-from dais.patterns import MAKERS, fuzzy_modifier, skin_pattern
+from dais.patterns import MAKERS, fuzzy_modifier, notch_top, skin_pattern
 from dais.shell import outline
 from dais.split import split_bosses
 
@@ -48,7 +51,7 @@ def _overhangs(part: Part, lay: Layout, max_angle: float = 45.0) -> list[tuple[f
     found = []
     for f in part.faces():
         c = f.center()
-        h = (c - Vector(0, 0, lay.key_z)).dot(up)
+        h = (c - Vector(0, lay.key_y, lay.key_z)).dot(up)
         if f.normal_at(c).dot(up) > math.cos(math.radians(max_angle)) + 1e-6 and h < 3.5 and f.area > 0.05:
             found.append((round(h, 2), round(f.area, 2)))
     return found
@@ -92,8 +95,13 @@ def test_top_shell_prints_without_supports(built: Built, name: str) -> None:
     assert (FUNNEL_BOTTOM - SW_CUT) / 2 <= 1.0
 
 
+SPLIT_DESIGNS = [n for n, d in DESIGNS.items() if d.split]
+ARTISAN = 19.0  # widest in its lower 4-5 mm (calipers)
+ARTISAN_REST = 8.0  # its base above the plate top, key up
+
+
 @pytest.mark.parametrize("pattern", ["voronoi", "facets", "voronoi-full", "facets-full"])
-@pytest.mark.parametrize("name", ["split", "split-trapezoid"])
+@pytest.mark.parametrize("name", SPLIT_DESIGNS)
 def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> None:
     opt = Options(pattern=pattern)
     d = DESIGNS[name]
@@ -104,9 +112,10 @@ def test_patterns_build_and_print_without_supports(name: str, pattern: str) -> N
 
 
 @pytest.mark.parametrize("pattern", ["voronoi", "facets", "voronoi-full", "facets-full"])
-def test_patterns_leave_min_wall(pattern: str) -> None:
+@pytest.mark.parametrize("name", ["split", "plinth"])
+def test_patterns_leave_min_wall(name: str, pattern: str) -> None:
     """No relief deeper than the wall allows: MIN_WALL left everywhere, also over the thin rebate."""
-    lay = DESIGNS["split"].layout(BOARD, Options(pattern=pattern))
+    lay = DESIGNS[name].layout(BOARD, Options(pattern=pattern))
     cut = skin_pattern(lay, pattern)
     rebate = outline(lay, RIM_WALL - MIN_WALL + 0.01) & between(lay, -1.0, REBATE_H)
     for zone in (rebate, outline(lay, WALL - MIN_WALL + 0.01)):
@@ -124,7 +133,37 @@ def test_fuzzy_is_a_slicer_modifier_only(full: bool) -> None:
     assert mod.is_valid and len(mod.solids()) == 1
     assert (mod & top).volume > 1000  # it encloses the outer walls...
     box = mod.bounding_box()
-    assert box.max.Z < lay.h_back - 0.5 and box.max.Y < lay.depth / 2 - 1  # ...not the top face, not the back
+    assert box.max.Z < lay.h_back - 0.5  # ...not the top face
+    if full:  # all four walls, clear of the USB-C notch
+        assert box.max.Y > lay.depth / 2 - 0.1
+        assert (mod & _notch_zone(lay)).volume < 1e-3
+    else:  # front and sides only
+        assert box.max.Y < lay.depth / 2 - 1
+
+
+def _notch_zone(lay: Layout) -> Part:
+    """The USB-C plug notch grown by USB_KEEPOUT - 0.1, in the back wall (not the air outside it)."""
+    m = USB_KEEPOUT - 0.1
+    return Pos(0, lay.depth / 2 - WALL / 2, -1) * Box(PLUG_W + 2 * m, WALL, notch_top(lay) + m + 1, align=params.MIN)
+
+
+@pytest.mark.parametrize("pattern", ["voronoi-full", "facets-full"])
+def test_full_patterns_wrap_the_back_clear_of_the_usb(pattern: str) -> None:
+    lay = DESIGNS["split"].layout(BOARD, Options(pattern=pattern))
+    cut = skin_pattern(lay, pattern)
+    back = Pos(0, lay.depth / 2, 0) * Box(lay.width - 8, 2 * WALL, 400)
+    assert (cut & back).volume > 20  # the back wall is textured...
+    assert (cut & _notch_zone(lay)).volume < 1e-3  # ...but not round the plug notch
+
+
+@pytest.mark.parametrize("name", ["plinth", "plinth-long"])
+def test_artisan_sits_on_the_plinth_and_travels_into_it(built: Built, name: str) -> None:
+    """The top face just under the artisan's base, and the hole clear of it over the full travel."""
+    lay, parts = built[name]
+    assert ARTISAN_TOP < ARTISAN_REST < ARTISAN_TOP + 1.0
+    for drop in (0.0, 2.0, 4.0):
+        base = lay.key * Pos(0, 0, ARTISAN_REST - drop) * Box(ARTISAN, ARTISAN, 6.0, align=params.MIN)
+        assert base.distance_to(parts["top-case"]) > 0.4, drop  # 0.6 on the flats, 0.43 at the R1 corners
 
 
 def test_patterns_list() -> None:

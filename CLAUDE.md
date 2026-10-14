@@ -44,15 +44,23 @@ is generated too but is what the docs and README display, so re-render after geo
   table, bevel deg, pattern) travels in `Layout.opt`; defaults = integrated plate + M3 inserts +
   60 deg bevels. `LEGACY` = the first prototypes and must reproduce
   `tests/golden_volumes_legacy.json` EXACTLY -- never regenerate that file to make a test pass.
-  `patterns.py`: `voronoi`/`facets` cutters on the split top case (front + sides), built per face
+  `patterns.py`: `voronoi`/`facets` band cutters on the split top case (front + sides), built per face
   in a local frame and clipped to a band, overhang-checked by the tests (relief faces toward the
   bed: normal up-component <= PATTERN_MAX_UP); `fuzzy` = no geometry, exports a slicer modifier
   (`modifier-fuzzy-skin.stl`). The owner rejected flutes/knurl/hex/ripple: don't bring them back.
-  `-full` variants: `_Strip` unrolls front+sides+front corner rounds (6 chords each), generates the
-  texture once in strip coordinates and maps it per segment, clipped at bisector planes; the
-  owner wants the texture continuous ROUND the front corners. CLI variants:
+  `-full` variants: `_Strip` unrolls ALL FOUR walls as a closed loop (each R3 round 6 chords),
+  generates the texture once in loop coordinates, periodic in u (voronoi seeds wrap, facets tiles
+  divide the loop length) and maps it per segment, clipped at bisector planes; `_usb_keepout`
+  keeps a ramped plain margin round the USB-C notch. The owner wants the texture continuous round
+  every corner and on the back too. CLI variants:
   `--pattern X|all` -> `out/<board>/<design>-<pattern>/` + `options.json`.
-- `designs.py`: `DESIGNS` registry -- `side-cove`, `wrap-cove`, `split`, `split-trapezoid`.
+- `designs.py`: `DESIGNS` registry -- `side-cove`, `wrap-cove`, `split`, `split-trapezoid`,
+  `plinth`, `plinth-long`. Each `Design` carries a `params.Look` (bezel, key hole, top height above
+  the plate, top chamfer, board under|behind the switch) that travels in `Layout.look`; the
+  defaults reproduce the first four designs exactly. `PLINTH`: top 7.5 above the plate (artisan
+  base rests at 8.0), hole 20.2 (artisan 19.0), bezel 9.5 (insert columns vs board pocket),
+  2.5 mm chamfer. `PLINTH_LONG`: board behind the switch -> `Layout.key_y` < 0 (the key frame is
+  NOT always at y = 0), plate 2.6 lower, case 66 mm deep.
   A new design is one `Design` entry; CLI, output tree and renderer pick it up (add its docs
   page and sidebar entry by hand). `Design.build()` runs `check()`: valid single solids (feet
   excepted), no pairwise clash > 1e-3 mm^3.

@@ -89,6 +89,17 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `SPLIT_FRONT_Z` | 2.0 | top case lower edge on the front face, above the case bottom (seam rises TILT) |
 | `TRAP_FRONT_EXTRA` | 10.0 | trapezoid plan: front this much wider than the back (sides ~6.4 deg) |
 
+## Plinth designs: high top up to the artisan's base line
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `ARTISAN_WELL` | 20.2 | key hole: 19.0 + 0.6 per side; straight walls down to 2.2 above the plate |
+| `ARTISAN_TOP` | 7.5 | top face above the plate top: 0.5 under the artisan's base, switch hidden |
+| `PLINTH_BEZEL` | 9.5 | narrowest that keeps the R4 insert columns clear of the board pocket |
+| `PLINTH_EDGE` | 2.5 | large top-perimeter chamfer (height): light catches it, the slab reads thinner |
+| `LONG_FRONT_BEZEL` | 7.0 | board-behind plinth: top face in front of the key hole |
+| `LONG_PIN_GAP` | 2.0 | board-behind plinth: switch pins -> board front stop, room for the wires |
+
 ## Feet
 
 | Constant | Value | Meaning |
@@ -117,6 +128,7 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `FACET_DEPTH` | (1.0, 1.8) | apex depth range into the 3 mm wall (>= 1.2 mm of wall left) |
 | `FULL_MARGIN` | 0.3 | clear of the corner rounds, the rim round and the top bevel |
 | `MIN_WALL` | 1.0 | wall left behind any relief; over the rebate (RIM_WALL thick) it caps the depth |
+| `USB_KEEPOUT` | 1.5 | "-full" variants wrap the back too: plain margin round the USB-C plug notch |
 
 ## Fasteners
 
@@ -145,3 +157,14 @@ Values marked **MEASURE** are placeholders waiting for calipers or the coupon te
 | `pattern` | None | None |
 
 `PATTERNS`: `fuzzy`, `voronoi`, `facets`, `fuzzy-full`, `voronoi-full`, `facets-full` (split top case sides).
+
+## Design looks
+
+| `Look` | default | `PLINTH` | `PLINTH_LONG` |
+|---|---|---|---|
+| `bezel` | 12.0 | 9.5 | 9.5 |
+| `well` | 19.6 | 20.2 | 20.2 |
+| `well_depth` | 4.0 | 7.5 | 7.5 |
+| `top_edge` | 0.8 | 2.5 | 2.5 |
+| `board` | under | under | behind |
+| `front_bezel` | 0.0 | 0.0 | 7.0 |

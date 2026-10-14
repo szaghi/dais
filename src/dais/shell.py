@@ -35,10 +35,8 @@ from .params import (
     R_CORNER,
     SW_CUT,
     TILT,
-    TOP_EDGE,
     USB_SLOT_FIT,
-    WELL,
-    WELL_DEPTH,
+    WALL,
     WELL_R,
     WELL_RIM,
 )
@@ -84,11 +82,17 @@ def bevel(part: Part, face: Face, height: float, angle: float) -> Part:
     return chamfer(face.edges(), length=height / math.tan(math.radians(angle)), length2=height, reference=face)
 
 
+def top_edge(lay: Layout) -> float:
+    """Height of the top-perimeter chamfer: the design's, its run capped at R_CORNER - 1 (a longer
+    run eats the corner rounds; OCC fails on it, e.g. the plinth's 2.5 mm at 45 deg)."""
+    return min(lay.look.top_edge, (R_CORNER - 1.0) * math.tan(math.radians(lay.opt.bevel)))
+
+
 def outer_shell(lay: Layout) -> Part:
     """Solid wedge with R_CORNER vertical corners and the bevelled top perimeter."""
     shell = wedge(lay)
     shell = fillet(shell.edges().filter_by(Axis.Z), radius=R_CORNER)
-    return bevel(shell, shell.faces().sort_by(Axis.Z)[-1], TOP_EDGE, lay.opt.bevel)
+    return bevel(shell, shell.faces().sort_by(Axis.Z)[-1], top_edge(lay), lay.opt.bevel)
 
 
 def key_well(lay: Layout) -> Part:
@@ -96,10 +100,11 @@ def key_well(lay: Layout) -> Part:
     (separate plate) or the switch opening of the integrated plate: a 45 deg funnel down to
     FUNNEL_BOTTOM at the plate top -- printed top down, a flat ring would overhang -- and the
     SW_CUT cutout through the PLATE_T web."""
-    well = Pos(0, 0, -1) * Box(WELL, WELL, WELL_DEPTH + 2, align=MIN)
+    size, depth = lay.look.well, lay.look.well_depth
+    well = Pos(0, 0, -1) * Box(size, size, depth + 2, align=MIN)
     well = fillet(well.edges().filter_by(Axis.Z), radius=WELL_R)
     rim = extrude(
-        Pos(0, 0, WELL_DEPTH - WELL_RIM) * RectangleRounded(WELL, WELL, WELL_R),
+        Pos(0, 0, depth - WELL_RIM) * RectangleRounded(size, size, WELL_R),
         amount=WELL_RIM + 1,
         taper=-(90.0 - lay.opt.bevel),
     )
@@ -110,19 +115,21 @@ def key_well(lay: Layout) -> Part:
                 cut += (
                     lay.key
                     * Pos(sx * PLATE_SCREW, sy * PLATE_SCREW, -1)
-                    * Cylinder(PLATE_SCREW_PILOT / 2, WELL_DEPTH, align=MIN)
+                    * Cylinder(PLATE_SCREW_PILOT / 2, depth, align=MIN)
                 )
         return cut
     # sharp corners: a tapered rounded rectangle grows its corner radius with height and would
     # pinch a pressed keycap's corners (0.18 mm); sharp ones keep the diagonal clearance
-    funnel = extrude(Rectangle(FUNNEL_BOTTOM, FUNNEL_BOTTOM), amount=WELL_DEPTH + 2, taper=-45)
+    funnel = extrude(Rectangle(FUNNEL_BOTTOM, FUNNEL_BOTTOM), amount=depth + 2, taper=-45)
     cutout = Box(SW_CUT, SW_CUT, 2 * PLATE_T + 2)
     return lay.key * ((well & funnel) + rim + cutout)
 
 
 def integrated_plate(lay: Layout) -> Part:
-    """The switch plate as part of the top shell: a PLATE_T web under the top skin (cut by ``key_well``)."""
-    return lay.key * Box(PLATE, PLATE, PLATE_T, align=MAX)
+    """The switch plate as part of the top shell: a PLATE_T web under the top skin (cut by ``key_well``);
+    a key moved forward (board behind the switch) would push it through the front wall: clipped."""
+    plate = lay.key * Box(PLATE, PLATE, PLATE_T, align=MAX)
+    return plate if lay.key_y == 0.0 else plate & outline(lay, WALL - 0.5)
 
 
 def usb_cuts(lay: Layout) -> Part:

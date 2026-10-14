@@ -1,6 +1,6 @@
 # Status
 
-All four designs build, pass the geometric checks and are ready for prototype prints. A few
+All six designs build, pass the geometric checks and are ready for prototype prints. A few
 inputs are still placeholders; each one is a single constant in
 `src/dais/params.py`, marked `MEASURE`.
 

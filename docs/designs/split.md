@@ -43,8 +43,8 @@ Optional [skin patterns](./options#skin-patterns) decorate the front and the sid
 
 ## Skin patterns
 
-The split top case takes optional textures on its front and sides -- as a band, or over the
-whole flat side (`-full`). Build them with `dais build --pattern <name>`; details and printing
+The split top case takes optional textures: on its front and sides as a band, or over all four
+walls (`-full`). Build them with `dais build --pattern <name>`; details and printing
 notes in [Options and patterns](./options#skin-patterns).
 
 <Views photo :views="[

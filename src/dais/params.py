@@ -100,6 +100,16 @@ SPLIT_BOSS_INSET = 2.5  # screw axis from the inner wall (bottom-case columns fu
 SPLIT_FRONT_Z = 2.0  # top case lower edge on the front face, above the case bottom (seam rises TILT)
 TRAP_FRONT_EXTRA = 10.0  # trapezoid plan: front this much wider than the back (sides ~6.4 deg)
 
+# --- Plinth designs: high top up to the artisan's base line ----------------------------
+# artisan (calipers, 2026-10-14): 19.0 wide in its lower 4-5 mm, resting 4.0 above the 4.0 mm top
+# face, i.e. 8.0 above the plate top; pressed (4 mm travel) its base drops to 4.0 above the plate
+ARTISAN_WELL = 20.2  # key hole: 19.0 + 0.6 per side; straight walls down to 2.2 above the plate
+ARTISAN_TOP = 7.5  # top face above the plate top: 0.5 under the artisan's base, switch hidden
+PLINTH_BEZEL = 9.5  # narrowest that keeps the R4 insert columns clear of the board pocket
+PLINTH_EDGE = 2.5  # large top-perimeter chamfer (height): light catches it, the slab reads thinner
+LONG_FRONT_BEZEL = 7.0  # board-behind plinth: top face in front of the key hole
+LONG_PIN_GAP = 2.0  # board-behind plinth: switch pins -> board front stop, room for the wires
+
 # --- Feet ------------------------------------------------------------------------------
 FOOT_W = 6.0
 FOOT_T = 1.4  # TPU strip thickness
@@ -124,6 +134,7 @@ FACET_DEPTH = (1.0, 1.8)  # apex depth range into the 3 mm wall (>= 1.2 mm of wa
 # "-full" variants: the whole flat side, from the rim round at the seam up to the top bevel line
 FULL_MARGIN = 0.3  # clear of the corner rounds, the rim round and the top bevel
 MIN_WALL = 1.0  # wall left behind any relief; over the rebate (RIM_WALL thick) it caps the depth
+USB_KEEPOUT = 1.5  # "-full" variants wrap the back too: plain margin round the USB-C plug notch
 
 
 # --- Fasteners -------------------------------------------------------------------------
@@ -174,3 +185,27 @@ class Options:
 
 
 LEGACY = Options(plate="separate", fastener="self-tap", bevel=45.0)  # the first prototypes
+
+
+# --- Design looks ------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Look:
+    """Top-side proportions of a design; the defaults are the first four designs."""
+
+    bezel: float = BEZEL  # top face beyond the key hole, left/right
+    well: float = WELL  # key hole opening
+    well_depth: float = WELL_DEPTH  # top face above the plate top
+    top_edge: float = TOP_EDGE  # top-perimeter chamfer height
+    board: Literal["under", "behind"] = "under"  # controller under the switch, or behind it (lower plate)
+    front_bezel: float = 0.0  # board behind: top face in front of the key hole (the key moves forward)
+
+
+PLINTH = Look(bezel=PLINTH_BEZEL, well=ARTISAN_WELL, well_depth=ARTISAN_TOP, top_edge=PLINTH_EDGE)
+PLINTH_LONG = Look(
+    bezel=PLINTH_BEZEL,
+    well=ARTISAN_WELL,
+    well_depth=ARTISAN_TOP,
+    top_edge=PLINTH_EDGE,
+    board="behind",
+    front_bezel=LONG_FRONT_BEZEL,
+)

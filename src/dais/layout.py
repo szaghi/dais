@@ -13,14 +13,15 @@ from dataclasses import dataclass
 from build123d import Box, Location, Part, Pos, Rot
 
 from .params import (
-    BEZEL,
     BOARD_FIT,
     BOTTOM_T,
     COMP_H,
+    LONG_PIN_GAP,
     MAX,
     MIN,
     PLATE,
     POCKET_D,
+    SPLIT_BOSS_INSET,
     SPLIT_FRONT_Z,
     STOP_T,
     SW_BELOW,
@@ -30,10 +31,9 @@ from .params import (
     TILT,
     USB_WALL_LEFT,
     WALL,
-    WELL,
-    WELL_DEPTH,
     WIRE_GAP,
     Board,
+    Look,
     Options,
 )
 
@@ -48,6 +48,7 @@ class Layout:
     depth: float  # body Y
     in_x: float
     in_y: float
+    key_y: float  # plate top centre plan position (0: centred; < 0 with the board behind the switch)
     key_z: float  # plate top centre height (key frame origin)
     h_front: float
     h_back: float
@@ -55,25 +56,48 @@ class Layout:
     board_back: float  # Y of the PCB back edge
     bosses: tuple[tuple[float, float], ...]  # one-piece body bosses
     opt: Options  # construction choices: plate, fastener, bevel, pattern
+    look: Look  # top-side proportions: bezel, key hole, top height, edge chamfer, board position
 
     @classmethod
-    def for_board(cls, board: Board, front_extra: float = 0.0, opt: Options | None = None) -> Layout:
-        """Size the case around ``board``; ``front_extra`` > 0 widens the front (trapezoidal plan)."""
+    def for_board(
+        cls,
+        board: Board,
+        front_extra: float = 0.0,
+        opt: Options | None = None,
+        look: Look | None = None,
+        split: bool = False,
+    ) -> Layout:
+        """Size the case around ``board``; ``front_extra`` > 0 widens the front (trapezoidal plan).
+
+        With ``look.board == "behind"`` the board sits behind the switch instead of under it: the
+        plate drops by the board and component stack, the key moves forward and the case gets deeper.
+        """
         opt = opt or Options()
+        look = look or Look()
         t = math.radians(TILT)
-        width = WELL + 2 * BEZEL
+        width = look.well + 2 * look.bezel
         setback = max(0.0, board.usb_overhang - USB_WALL_LEFT)
-        in_y = board.length + BOARD_FIT + STOP_T + 1.0 + setback
-        depth = max(width, in_y + 2 * WALL)
-        in_y = depth - 2 * WALL
-        in_x = width - 2 * WALL
         board_top = BOTTOM_T - POCKET_D + board.pcb_t
         # lowest switch point below the plate-top centre (tilted housing corner / pin tips)
         drop = max(
             SW_BELOW * math.cos(t) + SW_HALF * math.sin(t), (SW_BELOW + SW_PINS) * math.cos(t) + SW_PIN_Y * math.sin(t)
         )
-        key_z = board_top + COMP_H + WIRE_GAP + drop
-        top_c = key_z + WELL_DEPTH / math.cos(t)  # top face height above the key centre
+        stack = board.length + BOARD_FIT + STOP_T  # board pocket + front stop, from the back inner wall
+        if look.board == "behind":
+            # pins clear the floor by WIRE_GAP; their back reach clears the board's front stop
+            key_z = BOTTOM_T + WIRE_GAP + drop
+            reach = SW_PIN_Y * math.cos(t) + (SW_BELOW + SW_PINS) * math.sin(t)
+            depth = look.front_bezel + look.well / 2 + reach + LONG_PIN_GAP + stack + setback + WALL
+            depth = max(width, depth)
+            key_y = -depth / 2 + look.front_bezel + look.well / 2
+        else:
+            key_z = board_top + COMP_H + WIRE_GAP + drop
+            depth = max(width, stack + 1.0 + setback + 2 * WALL)
+            key_y = 0.0
+        in_y = depth - 2 * WALL
+        in_x = width - 2 * WALL
+        top_k = key_z + look.well_depth / math.cos(t)  # top face height above the key centre
+        slope = math.tan(math.radians(TILT))
         bx, by = in_x / 2 - opt.fast.boss_inset, in_y / 2 - opt.fast.boss_inset
         lay = cls(
             board=board,
@@ -82,24 +106,31 @@ class Layout:
             depth=depth,
             in_x=in_x,
             in_y=in_y,
+            key_y=key_y,
             key_z=key_z,
-            h_front=top_c - depth / 2 * math.tan(t),
-            h_back=top_c + depth / 2 * math.tan(t),
+            h_front=top_k + (-depth / 2 - key_y) * slope,
+            h_back=top_k + (depth / 2 - key_y) * slope,
             usb_z=board_top + board.usb_h / 2,
             board_back=in_y / 2 - setback,
             bosses=tuple((sx * bx, sy * by) for sx in (-1, 1) for sy in (-1, 1)),
             opt=opt,
+            look=look,
         )
-        if (board.width + BOARD_FIT) / 2 + 1.0 > bx - opt.fast.boss_r:
+        pocket = (board.width + BOARD_FIT) / 2
+        if split:  # corner columns at SPLIT_BOSS_INSET from the walls, beside the board pocket
+            col = max(opt.fast.boss_r, opt.fast.top_boss_r)
+            if pocket + 0.5 > in_x / 2 - SPLIT_BOSS_INSET - col:
+                raise ValueError("board too wide for the split columns: increase the bezel")
+        elif pocket + 1.0 > bx - opt.fast.boss_r:
             raise ValueError("board too wide for the bosses: increase BEZEL")
-        if PLATE / 2 * math.cos(t) > in_y / 2 or PLATE / 2 > in_x / 2:
+        if key_y == 0.0 and (PLATE / 2 * math.cos(t) > in_y / 2 or PLATE / 2 > in_x / 2):
             raise ValueError("plate does not fit the cavity")
         return lay
 
     @property
     def key(self) -> Location:
         """Key frame: plate top centre, tilted by TILT about X (rises to the back)."""
-        return Pos(0, 0, self.key_z) * Rot(TILT, 0, 0)
+        return Pos(0, self.key_y, self.key_z) * Rot(TILT, 0, 0)
 
     @property
     def big(self) -> float:
